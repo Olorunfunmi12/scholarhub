@@ -1,0 +1,7 @@
+{
+  "name": "Graduate ScholarHub",
+  "description": "An interactive graduate scholarship portal for Nigerian students featuring AI-powered scholarship discovery, profile tracking, and advanced document image editing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
