@@ -23,3 +23,21 @@ There is no backend: tokens are derived deterministically from the registered em
    `npm run dev`
 4. Build for production:
    `npm run build`
+
+## Deploying
+
+This is a static Vite/React app (no backend), so it deploys to any static host. Config files for the two most common ones are included:
+
+### Vercel
+1. Import the GitHub repo at https://vercel.com/new
+2. Framework preset: **Vite** (auto-detected via `vercel.json`)
+3. Add an environment variable `GEMINI_API_KEY` if you want Live AI Search enabled
+4. Deploy — Vercel gives you a public `*.vercel.app` URL, and redeploys automatically on every push to this branch/PR
+
+### Netlify
+1. Import the GitHub repo at https://app.netlify.com/start
+2. Build settings are auto-detected from `netlify.toml` (`npm run build` → `dist`)
+3. Add `GEMINI_API_KEY` under Site settings → Environment variables if desired
+4. Deploy — Netlify gives you a public `*.netlify.app` URL
+
+Either platform will auto-build a preview URL for this pull request once connected, and a production URL once merged to the default branch.
