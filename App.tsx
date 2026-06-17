@@ -1,101 +1,92 @@
 
-import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Search, 
-  User, 
-  Trophy, 
-  Image as ImageIcon, 
-  Bell, 
-  ChevronRight,
-  Plus,
-  Zap,
+import React, { useState } from 'react';
+import { HashRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import {
+  Home,
+  Search,
+  KeyRound,
+  ShieldCheck,
   BookOpen,
-  Send,
-  Loader2,
-  Settings
+  User,
+  CheckCircle2,
 } from 'lucide-react';
-import Dashboard from './components/Dashboard';
-import SearchPortal from './components/SearchPortal';
-import Profile from './components/Profile';
-import Leaderboard from './components/Leaderboard';
-import DocumentEditor from './components/DocumentEditor';
-import { UserProfile } from './types';
+import Landing from './components/Landing';
+import Browse from './components/Browse';
+import Register from './components/Register';
+import ActivateToken from './components/ActivateToken';
+import AccountPage from './components/AccountPage';
+import { Account } from './types';
+import { getAccount } from './services/auth';
 
 const App: React.FC = () => {
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('naija_scholar_profile');
-    return saved ? JSON.parse(saved) : {
-      name: 'Scholar Guest',
-      email: '',
-      major: 'Computer Science',
-      degreeTarget: 'Masters',
-      points: 10,
-      activityHistory: [{ date: Date.now(), action: 'Joined ScholarHub' }]
-    };
-  });
-
-  useEffect(() => {
-    localStorage.setItem('naija_scholar_profile', JSON.stringify(profile));
-  }, [profile]);
-
-  const addPoints = (amount: number, action: string) => {
-    setProfile(prev => ({
-      ...prev,
-      points: prev.points + amount,
-      activityHistory: [{ date: Date.now(), action }, ...prev.activityHistory]
-    }));
-  };
+  const [account, setAccount] = useState<Account | null>(() => getAccount());
+  const unlocked = !!account;
 
   return (
     <Router>
       <div className="min-h-screen bg-slate-50 flex flex-col pb-20 md:pb-0 md:pl-64">
         {/* Mobile Header */}
         <header className="md:hidden bg-white border-b px-4 py-3 flex justify-between items-center sticky top-0 z-50">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
               <BookOpen className="text-white w-5 h-5" />
             </div>
             <span className="font-bold text-slate-800">ScholarHub</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <Bell className="w-5 h-5 text-slate-500" />
-            <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-1 rounded-full text-xs font-bold border border-amber-200">
-              <Zap className="w-3 h-3 fill-amber-500" />
-              {profile.points}
-            </div>
-          </div>
+          </Link>
+          {unlocked ? (
+            <span className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-full text-xs font-bold border border-green-200">
+              <CheckCircle2 className="w-3 h-3" /> Unlocked
+            </span>
+          ) : (
+            <Link to="/register" className="bg-slate-900 text-white px-3 py-1.5 rounded-full text-xs font-bold">
+              Get Token
+            </Link>
+          )}
         </header>
 
         {/* Desktop Sidebar */}
         <aside className="hidden md:flex flex-col w-64 bg-white border-r fixed left-0 top-0 bottom-0 z-50">
           <div className="p-6">
-            <div className="flex items-center gap-3 mb-8">
+            <Link to="/" className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-200">
                 <BookOpen className="text-white w-6 h-6" />
               </div>
               <span className="font-bold text-xl text-slate-800">ScholarHub</span>
-            </div>
+            </Link>
 
             <nav className="space-y-1">
-              <NavLink to="/" icon={<Home />} label="Dashboard" />
-              <NavLink to="/search" icon={<Search />} label="Find Scholarships" />
-              <NavLink to="/editor" icon={<ImageIcon />} label="Doc Editor" />
-              <NavLink to="/leaderboard" icon={<Trophy />} label="Leaderboard" />
-              <NavLink to="/profile" icon={<User />} label="My Inventory" />
+              <NavLink to="/" icon={<Home />} label="Home" />
+              <NavLink to="/scholarships" icon={<Search />} label="Browse Scholarships" />
+              {unlocked ? (
+                <NavLink to="/account" icon={<User />} label="My Account" />
+              ) : (
+                <>
+                  <NavLink to="/register" icon={<KeyRound />} label="Register" />
+                  <NavLink to="/activate" icon={<ShieldCheck />} label="Activate Token" />
+                </>
+              )}
             </nav>
           </div>
 
           <div className="mt-auto p-4 border-t">
-            <div className="bg-slate-50 rounded-xl p-4 flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 overflow-hidden border-2 border-white">
-                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.name}`} alt="avatar" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">{profile.name}</p>
-                <p className="text-xs text-slate-500 truncate">{profile.degreeTarget} aspirant</p>
-              </div>
+            <div className={`rounded-xl p-4 flex items-center gap-3 ${unlocked ? 'bg-green-50' : 'bg-slate-50'}`}>
+              {unlocked ? (
+                <>
+                  <CheckCircle2 className="w-8 h-8 text-green-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-green-900 truncate">Full Access</p>
+                    <p className="text-xs text-green-600 truncate">{account?.name}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <KeyRound className="w-8 h-8 text-slate-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">Preview Mode</p>
+                    <p className="text-xs text-slate-500 truncate">Register to unlock</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </aside>
@@ -103,21 +94,29 @@ const App: React.FC = () => {
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-8 max-w-6xl mx-auto w-full">
           <Routes>
-            <Route path="/" element={<Dashboard profile={profile} />} />
-            <Route path="/search" element={<SearchPortal addPoints={addPoints} />} />
-            <Route path="/editor" element={<DocumentEditor addPoints={addPoints} />} />
-            <Route path="/leaderboard" element={<Leaderboard currentPoints={profile.points} />} />
-            <Route path="/profile" element={<Profile profile={profile} setProfile={setProfile} />} />
+            <Route path="/" element={<Landing unlocked={unlocked} />} />
+            <Route path="/scholarships" element={<Browse unlocked={unlocked} />} />
+            <Route path="/register" element={<Register onRegister={setAccount} />} />
+            <Route path="/activate" element={<ActivateToken onActivate={setAccount} />} />
+            <Route
+              path="/account"
+              element={account ? <AccountPage account={account} onSignOut={() => setAccount(null)} /> : <Navigate to="/register" replace />}
+            />
           </Routes>
         </main>
 
         {/* Mobile Navigation */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around items-center h-16 px-2 z-50">
           <MobileNavLink to="/" icon={<Home />} label="Home" />
-          <MobileNavLink to="/search" icon={<Search />} label="Search" />
-          <MobileNavLink to="/editor" icon={<ImageIcon />} label="Edit" />
-          <MobileNavLink to="/leaderboard" icon={<Trophy />} label="Winners" />
-          <MobileNavLink to="/profile" icon={<User />} label="Me" />
+          <MobileNavLink to="/scholarships" icon={<Search />} label="Browse" />
+          {unlocked ? (
+            <MobileNavLink to="/account" icon={<User />} label="Account" />
+          ) : (
+            <>
+              <MobileNavLink to="/register" icon={<KeyRound />} label="Register" />
+              <MobileNavLink to="/activate" icon={<ShieldCheck />} label="Activate" />
+            </>
+          )}
         </nav>
       </div>
     </Router>
@@ -131,8 +130,8 @@ const NavLink: React.FC<{ to: string; icon: React.ReactNode; label: string }> = 
     <Link
       to={to}
       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-        isActive 
-          ? 'bg-green-50 text-green-700 font-semibold' 
+        isActive
+          ? 'bg-green-50 text-green-700 font-semibold'
           : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
       }`}
     >

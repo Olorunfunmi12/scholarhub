@@ -3,21 +3,24 @@ export interface Scholarship {
   id: string;
   title: string;
   country: string;
+  region: string;
+  university: string;
   deadline: string;
   funding: 'Full' | 'Partial' | 'Tuition Only';
   degree: 'Masters' | 'PhD' | 'PostDoc';
+  field: string;
   description: string;
   link: string;
   addedAt: number;
 }
 
-export interface UserProfile {
+export interface Account {
   name: string;
   email: string;
-  major: string;
+  country: string;
   degreeTarget: string;
-  points: number;
-  activityHistory: { date: number; action: string }[];
+  token: string;
+  createdAt: number;
 }
 
 export interface GroundingChunk {
