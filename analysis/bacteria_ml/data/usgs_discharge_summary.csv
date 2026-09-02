@@ -1,0 +1,4 @@
+usgs_site_no,site_name,watershed,matched_bwb_prefix,start_date,end_date,n_records,missing_discharge_values,min_discharge_cfs,median_note,max_discharge_cfs,qualification_codes_present,source_file
+01589300,"GWYNNS FALLS AT VILLA NOVA, MD",Gwynns Falls,BWB-GWN,1/1/2013,12/31/2024,4383,0,5.45,calculated externally if needed,2460,A;A:e,USGSwaterservices.usgs.gov.txt
+01589440,"JONES FALLS AT SORRENTO, MD",Jones Falls,BWB-JON,1/1/2013,12/31/2024,4383,0,5.97,calculated externally if needed,2020,A;A:R;A:e,USGS_waterservices.usgs.gov.txt
+01585219,"HERRING RUN AT SINCLAIR LANE AT BALTIMORE, MD",Herring Run,BWB-HR,10/1/2013,12/31/2024,4110,0,5.44,calculated externally if needed,1290,A;A:R;A:e,usgs_-waterservices.usgs.gov.txt
