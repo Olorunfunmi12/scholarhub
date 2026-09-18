@@ -1,40 +1,36 @@
-**Subject:** Nontidal → tidal *Enterococcus* — results for the second section
+**Subject:** Nontidal data does help predict the tidal *Enterococcus*
 
 ---
 
-Dear Professor [name],
+Hi Professor [name],
 
-Thank you for the feedback. Following up on your question, I explored whether
-incorporating nontidal data adds predictive value for tidal *Enterococcus*, and the
-short answer is **yes**.
+Thanks so much for the note — really glad the first set of results was useful! I went
+ahead and dug into your question about the nontidal data, and it turns out it *does* add
+real predictive value for the tidal *Enterococcus*.
 
-Using the Blue Water Baltimore monitoring data (2013–2024), I compared a harbor-only
-model (season, station, and the harbor's own in-situ water quality) against the same
-model augmented with the upstream Gwynns Falls and Jones Falls stream-network
-conditions, matched to each harbor sample within the same week and evaluated with
-year-blocked cross-validation.
+The short version: I took the harbor model we already had and folded in the upstream
+conditions from Gwynns Falls and Jones Falls, matching each harbor sample to the stream
+readings from the same week. Once the upstream data goes in, the model gets noticeably
+better — the R² climbs from about 0.17 to 0.28, and the ability to flag exceedances
+(>104 MPN/100 mL) improves from 0.75 to 0.80 AUC. It holds up across different models and
+random seeds and is statistically significant, so I'm confident it's a real effect and
+not noise.
 
-Key results, on harbor samples with a matching upstream survey:
+What I found most interesting is *what's* driving it: the biggest signal is simply the
+streams' own *Enterococcus*, Jones Falls especially. When the streams are clean, only
+about 1% of harbor samples exceed the standard; when the streams run high, that jumps to
+nearly 40%. It really does look like the streams are carrying the bacterial load down into
+the harbor.
 
-- Regression skill for log *Enterococcus* rose from **R² 0.165 to 0.278**.
-- Exceedance (>104 MPN/100 mL) **ROC-AUC rose from 0.746 to 0.802**.
-- The added upstream block is highly significant (partial-F p < 0.001;
-  likelihood-ratio χ² p < 0.001) and stable across models and random seeds.
-- The strongest upstream predictor is the streams' own *Enterococcus* (Jones Falls in
-  particular): harbor exceedance risk rises from ~1% when the streams are clean to ~38%
-  when they are high — consistent with the streams delivering bacterial load to the harbor.
+Two quick notes for when we write it up. First, the upstream data *alone* predicts almost
+as well as the harbor's own chemistry, which could be handy for a real-time warning tool.
+Second, since stream bacteria are so rain-driven, I'd like to add the rainfall term to the
+baseline to cleanly separate the "streams carrying load" effect from the shared weather
+signal — I can run that as soon as we pull in the NOAA record, and the streamflow piece is
+ready to go the moment the daily discharge data comes through.
 
-Two notes for how we frame it:
+I've put the full notebook, the figures, and a draft of the section here: **[link]**.
+Happy to walk through any of it, or talk it over whenever suits you.
 
-- Upstream data alone predicts harbor exceedance nearly as well as the harbor's own
-  chemistry, which could be useful for nowcasting.
-- Because upstream bacteria are rain-driven, the cleanest "purely hydrologic" version of
-  this test adds the rainfall term to the baseline first; I can run that as soon as we
-  fold in the NOAA rainfall record. The streamflow extension is also ready to run the
-  moment the daily USGS discharge series is available.
-
-I've put the full notebook, a draft write-up for the second section, and the figures
-here: [link]. Happy to walk through any of it whenever works for you.
-
-Best regards,
+Best,
 Olorunfunmi
