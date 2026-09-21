@@ -26,3 +26,6 @@ dist-ssr
 
 # local data (not committed)
 analysis/data/
+
+# generated notebook exports
+analysis/*_report.html
