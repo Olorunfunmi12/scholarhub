@@ -1,0 +1,5 @@
+Apache Spark is a unified analytics engine for large scale data processing
+Spark provides high level APIs in Java Scala Python and R
+Spark runs on Hadoop YARN Kubernetes standalone or in the cloud
+Big data analytics with Spark is fast because Spark keeps data in memory
+Morgan State University students use Spark for big data analytics

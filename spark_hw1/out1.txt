@@ -1,0 +1,13 @@
+Spark version: 4.2.0
+Master: local[*]
+Default parallelism: 4
+Total lines: 5
+Top 8 words:
+  spark       6
+  data        4
+  analytics   3
+  in          3
+  for         2
+  big         2
+  is          2
+  apache      1

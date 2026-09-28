@@ -1,0 +1,72 @@
+=== Op 1: Create an RDD and apply map / filter / reduce ===
+squares: [1, 4, 9, 16, 25, 36, 49, 64, 81, 100]
+even squares: [4, 16, 36, 64, 100]
+sum of squares: 385
+
+=== Op 2: Load a CSV file into a DataFrame ===
+root
+ |-- order_id: integer (nullable = true)
+ |-- region: string (nullable = true)
+ |-- product: string (nullable = true)
+ |-- quantity: integer (nullable = true)
+ |-- unit_price: double (nullable = true)
+
++--------+------+-------+--------+----------+
+|order_id|region|product|quantity|unit_price|
++--------+------+-------+--------+----------+
+|       1|  East| Laptop|       2|     950.0|
+|       2|  West|  Phone|       5|     610.0|
+|       3|  East| Tablet|       3|     320.0|
+|       4| North| Laptop|       1|     980.0|
+|       5| South|  Phone|       4|     590.0|
++--------+------+-------+--------+----------+
+only showing top 5 rows
+=== Op 3: Select, add a column, and filter ===
++--------+-------+-------+
+|order_id|product|revenue|
++--------+-------+-------+
+|       1| Laptop| 1900.0|
+|       2|  Phone| 3050.0|
+|       5|  Phone| 2360.0|
+|       6| Laptop| 1880.0|
+|       7| Tablet| 1800.0|
+|       8|  Phone| 1860.0|
++--------+-------+-------+
+
+=== Op 4: Group by and aggregate ===
++------+-------------+------+
+|region|total_revenue|orders|
++------+-------------+------+
+|  West|       6190.0|     3|
+|  East|       4720.0|     3|
+| South|       2980.0|     2|
+| North|       2780.0|     2|
++------+-------------+------+
+
+=== Op 5: Join two DataFrames ===
++--------+------+-----------+-------+
+|order_id|region|    manager|revenue|
++--------+------+-----------+-------+
+|       1|  East| A. Johnson| 1900.0|
+|       2|  West|  B. Okafor| 3050.0|
+|       3|  East| A. Johnson|  960.0|
+|       4| North|C. Williams|  980.0|
+|       5| South| D. Adeyemi| 2360.0|
+|       6|  West|  B. Okafor| 1880.0|
+|       7| North|C. Williams| 1800.0|
+|       8|  East| A. Johnson| 1860.0|
+|       9| South| D. Adeyemi|  620.0|
+|      10|  West|  B. Okafor| 1260.0|
++--------+------+-----------+-------+
+
+=== Op 6: Spark SQL query ===
++-------+-----+---------+
+|product|units|avg_price|
++-------+-----+---------+
+| Tablet|   15|   311.25|
+|  Phone|   12|   606.67|
+| Laptop|    5|   956.67|
++-------+-----+---------+
+
+=== Op 7: Write results to disk (Parquet) and read back ===
+rows read back from Parquet: 10

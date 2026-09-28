@@ -1,0 +1,11 @@
+order_id,region,product,quantity,unit_price
+1,East,Laptop,2,950.00
+2,West,Phone,5,610.00
+3,East,Tablet,3,320.00
+4,North,Laptop,1,980.00
+5,South,Phone,4,590.00
+6,West,Laptop,2,940.00
+7,North,Tablet,6,300.00
+8,East,Phone,3,620.00
+9,South,Tablet,2,310.00
+10,West,Tablet,4,315.00
