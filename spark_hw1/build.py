@@ -1,5 +1,6 @@
 from reportlab.lib.pagesizes import letter
-from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Preformatted, Table, TableStyle, PageBreak, KeepTogether)
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Preformatted, Table, TableStyle, PageBreak, KeepTogether, Image)
+from reportlab.lib.utils import ImageReader
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
@@ -7,8 +8,8 @@ from reportlab.graphics.shapes import Drawing, Rect, String, Line, Polygon
 import math
 
 body = ParagraphStyle('b', fontName='Times-Roman', fontSize=12, leading=17, spaceAfter=8, alignment=0)
-h1 = ParagraphStyle('h1', fontName='Times-Bold', fontSize=14, leading=18, spaceBefore=12, spaceAfter=8)
-h2 = ParagraphStyle('h2', fontName='Times-Bold', fontSize=12, leading=16, spaceBefore=10, spaceAfter=4)
+h1 = ParagraphStyle('h1', fontName='Times-Bold', fontSize=14, leading=18, spaceBefore=12, spaceAfter=8, keepWithNext=1)
+h2 = ParagraphStyle('h2', fontName='Times-Bold', fontSize=12, leading=16, spaceBefore=10, spaceAfter=4, keepWithNext=1)
 center = ParagraphStyle('c', fontName='Times-Roman', fontSize=12, alignment=1, leading=17)
 titlest = ParagraphStyle('t', fontName='Times-Bold', fontSize=14, alignment=1, leading=18, spaceAfter=4)
 cap = ParagraphStyle('cap', fontName='Times-Roman', fontSize=10.5, alignment=1, spaceAfter=10)
@@ -26,6 +27,11 @@ def C(t):
     return tb
 def cf(t): return f'<font face="Courier">{t}</font>'
 rd = lambda f: open(f).read()
+
+def FIG(path, caption, maxw=6.5*inch, maxh=8.2*inch):
+    w, h = ImageReader(path).getSize()
+    sc = min(maxw / w, maxh / h)
+    return KeepTogether([Spacer(1, 4), Image(path, w*sc, h*sc), Spacer(1, 4), Paragraph(caption, cap)])
 
 def simple_table(rows, widths):
     t = Table(rows, colWidths=widths)
@@ -91,29 +97,14 @@ s += [Paragraph('1.3 How I installed Spark', h2),
    'After that I made a virtual environment for Python and installed PySpark into it with pip. The PySpark package from pip '
    'already contains the whole Spark engine, so I did not need to download Spark separately for local mode. These are the '
    'commands I ran:'),
- C('''
-$ java -version
-openjdk version "21.0.10" 2026-01-20
-
-$ python3 -m venv .venv
-$ source .venv/bin/activate
-(.venv)$ pip install --upgrade pip setuptools wheel
-(.venv)$ pip install pyspark
-(.venv)$ python -c "import pyspark; print(pyspark.__version__)"
-4.2.0
-'''),
- P('The install itself went through without errors. The problem I ran into came the first time I ran a Spark program. '
-   'Before printing any results, Spark printed a few warnings, and one of them was this:'),
- C('''
-WARN Utils: Your hostname, vm, resolves to a loopback address: 127.0.0.1;
-            using 192.0.2.2 instead (on interface eth0)
-WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
-'''),
+ FIG('shots/s1_install.png', 'Figure 2. Checking Java and Python, creating the virtual environment and installing PySpark.'),
+ P('The install itself went through without errors (Figure 2). The problem I ran into came the first time I ran a Spark '
+   'program. Before printing any results, Spark printed a few warnings, and one of them was about my hostname (Figure 3).'),
+ FIG('shots/s2_warn.png', 'Figure 3. First run of the word count program. The hostname warning is the third line.'),
  P('This happens because the machine name points to 127.0.0.1, so Spark is not sure which network address to use and '
    'picks one on its own. In local mode the program still ran fine, but on a real cluster the wrong address can stop the '
    'executors from reaching the driver. The warning itself tells you the fix, which is to set the ' + cf('SPARK_LOCAL_IP') +
-   ' environment variable. I ran the program again with it set and the warning was gone:'),
- C('(.venv)$ export SPARK_LOCAL_IP=127.0.0.1\n(.venv)$ python part1_wordcount.py'),
+   ' environment variable. I ran the program again with it set and the warning was gone, as shown in Figure 4 in the next section.'),
  P('There was also a warning that says "Unable to load native-hadoop library for your platform". This one is normal in '
    'local mode. Spark just uses its built in Java code instead, so I left it alone. To keep the output readable I also '
    'set the log level to ERROR inside my scripts with ' + cf('setLogLevel("ERROR")') + '.')]
@@ -130,8 +121,7 @@ s += [Paragraph('1.4 Example problem: word count', h2),
    'has to move data between partitions (a shuffle). Last, ' + cf('sortBy') + ' puts the words in order from most to least '
    'common. One thing I found interesting is that none of this actually runs until ' + cf('count()') + ' or ' +
    cf('take()') + ' is called. Spark waits and builds a plan first, which is called lazy evaluation.'),
- P('Output:'),
- C('(.venv)$ python part1_wordcount.py\n' + rd('out1.txt')),
+ FIG('shots/s3_fixed.png', 'Figure 4. Word count run after setting SPARK_LOCAL_IP. The hostname warning no longer appears.'),
  P('The output shows that Spark is working. It started in local mode, it used all 4 cores (default parallelism is 4), '
    'it read all 5 lines, and the counts are correct. I checked "spark" by hand and it does appear 6 times in the file.')]
 
@@ -207,7 +197,6 @@ s += [Paragraph('Step 7: Run basic Spark operations', h2),
    cf('python part2_operations.py') + ' and the output of each operation is shown after the code.'),
  C(rd('part2_operations.py'))]
 
-sections = rd('out2.txt').split('=== ')[1:]
 expl = [
  ('Operation 1: RDD map, filter and reduce',
   cf('parallelize') + ' takes a normal Python list of the numbers 1 to 10 and spreads it out as an RDD. ' + cf('map') +
@@ -234,17 +223,27 @@ expl = [
   'The last step saves the data as Parquet, which is a compressed column based file format that is common in big data. '
   'Then it reads the file back to make sure nothing was lost, and all 10 rows came back. When I looked in the output '
   'folder, Spark had written a folder instead of one file. Inside it were the data file and an empty file called ' +
-  cf('_SUCCESS') + ' that shows the write finished.'),
+  cf('_SUCCESS') + ' that shows the write finished (Figure 7).'),
 ]
-for (hd, ex), sec in zip(expl, sections):
-    out_txt = sec.split('===', 1)[1].strip('\n') if '===' in sec else sec
-    s += [KeepTogether([Paragraph(hd, h2), P(ex), C(out_txt)])]
+s += [P('Figures 5 and 6 show the real output when I ran the script in the terminal. After the figures I explain what '
+        'each operation does and how I checked the results.'),
+      FIG('shots/s4_ops_a.png', 'Figure 5. Output of part2_operations.py, operations 1 to 4.'),
+      FIG('shots/s4_ops_b.png', 'Figure 6. Output of part2_operations.py, operations 5 to 7.')]
+for hd, ex in expl:
+    s += [KeepTogether([Paragraph(hd, h2), P(ex)])]
+s += [FIG('shots/s5_parquet.png', 'Figure 7. The Parquet output folder written by operation 7.', maxw=5.5*inch)]
 
 s += [Paragraph('Step 8: Watch the job and shut down', h2),
  P('While a Spark program is running you can open http://localhost:4040 in a browser. This is the Spark web UI, and it '
    'shows the jobs, stages and tasks, how long each one took, and how much memory is being used. It is the main place to '
    'look when a program is slow. At the end of every program you should call ' + cf('spark.stop()') + ' so that Spark '
-   'gives back the memory and CPU it was using.')]
+   'gives back the memory and CPU it was using.'),
+ P('To see this for myself, I kept the Spark session from part2_operations.py open and opened the web UI in the browser. '
+   'The Jobs page (Figure 8) lists the 19 jobs that my seven operations created, with how long each one took. The SQL / '
+   'DataFrame page (Figure 9) shows each DataFrame and SQL query, such as the csv reads, the show() calls and the parquet '
+   'write, all marked as completed.'),
+ FIG('shots/ui_jobs.png', 'Figure 8. Spark Web UI, Jobs page, after running part2_operations.py.'),
+ FIG('shots/ui_sql.png', 'Figure 9. Spark Web UI, SQL / DataFrame page for the same application.')]
 
 s += [KeepTogether([Paragraph('Summary of the operations', h2),
  simple_table([['#', 'Operation', 'API', 'Methods used'],

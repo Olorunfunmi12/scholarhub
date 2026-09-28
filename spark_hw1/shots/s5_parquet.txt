@@ -1,0 +1,4 @@
+(.venv) root@vm:~/spark_hw1$ ls output/sales_parquet
+_SUCCESS
+part-00000-41519caf-60c1-4ec0-a157-71062ee4a4be-c000.snappy.parquet
+(.venv) root@vm:~/spark_hw1$ 

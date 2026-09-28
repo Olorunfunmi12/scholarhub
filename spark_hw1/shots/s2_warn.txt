@@ -1,0 +1,23 @@
+(.venv) root@vm:~/spark_hw1$ python part1_wordcount.py
+WARNING: Using incubator modules: jdk.incubator.vector
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+26/09/28 14:45:33 WARN Utils: Your hostname, vm, resolves to a loopback address: 127.0.0.1; using 192.0.2.2 instead (on interface eth0)
+26/09/28 14:45:33 WARN Utils: Set SPARK_LOCAL_IP if you need to bind to another address
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+Setting default log level to "WARN".
+To adjust logging level use sc.setLogLevel(newLevel). For SparkR, use setLogLevel(newLevel).
+26/09/28 14:45:33 WARN NativeCodeLoader: Unable to load native-hadoop library for your platform... using builtin-java classes where applicable
+Spark version: 4.2.0
+Master: local[*]
+Default parallelism: 4
+[Stage 0:>                                                          (0 + 2) / 2]                                                                                Total lines: 5
+Top 8 words:
+  spark       6
+  data        4
+  analytics   3
+  in          3
+  for         2
+  big         2
+  is          2
+  apache      1
+(.venv) root@vm:~/spark_hw1$ 

@@ -1,0 +1,16 @@
+root@vm:~/spark_hw1$ java -version
+openjdk version "21.0.10" 2026-01-20
+OpenJDK Runtime Environment (build 21.0.10+7-Ubuntu-124.04)
+OpenJDK 64-Bit Server VM (build 21.0.10+7-Ubuntu-124.04, mixed mode, sharing)
+root@vm:~/spark_hw1$ python3 --version
+Python 3.11.15
+root@vm:~/spark_hw1$ python3 -m venv .venv
+root@vm:~/spark_hw1$ source .venv/bin/activate
+(.venv) root@vm:~/spark_hw1$ pip install --upgrade pip setuptools wheel | tail -1
+Successfully installed packaging-26.3 pip-26.2.1 setuptools-84.0.0 wheel-0.48.0
+(.venv) root@vm:~/spark_hw1$ pip install pyspark | tail -2
+Installing collected packages: py4j, pyspark
+Successfully installed py4j-0.10.9.9 pyspark-4.2.0
+(.venv) root@vm:~/spark_hw1$ python -c "import pyspark; print(pyspark.__version__)"
+4.2.0
+(.venv) root@vm:~/spark_hw1$ 
