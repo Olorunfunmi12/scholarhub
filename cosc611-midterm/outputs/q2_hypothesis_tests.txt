@@ -1,77 +1,163 @@
 ========================================================================
-1. CHI-SQUARE TEST OF INDEPENDENCE  (device vs purchase)
+1. CHI-SQUARE TEST OF INDEPENDENCE  (UCBAdmissions: gender vs admission)
 ========================================================================
-Observed contingency table (DataFrame.crosstab):
-+---------------+---+---+
-|device_purchase| No|Yes|
-+---------------+---+---+
-|         Mobile| 70| 30|
-|        Desktop| 55| 45|
-+---------------+---+---+
+Raw data (frequency per Admit x Gender x Dept):
++--------+------+----+----+
+|   Admit|Gender|Dept|Freq|
++--------+------+----+----+
+|Admitted|Female|   A|  89|
+|Rejected|Female|   A|  19|
+|Admitted|  Male|   A| 512|
+|Rejected|  Male|   A| 313|
+|Admitted|Female|   B|  17|
+|Rejected|Female|   B|   8|
+|Admitted|  Male|   B| 353|
+|Rejected|  Male|   B| 207|
+|Admitted|Female|   C| 202|
+|Rejected|Female|   C| 391|
+|Admitted|  Male|   C| 120|
+|Rejected|  Male|   C| 205|
+|Admitted|Female|   D| 131|
+|Rejected|Female|   D| 244|
+|Admitted|  Male|   D| 138|
+|Rejected|  Male|   D| 279|
+|Admitted|Female|   E|  94|
+|Rejected|Female|   E| 299|
+|Admitted|  Male|   E|  53|
+|Rejected|  Male|   E| 138|
+|Admitted|Female|   F|  24|
+|Rejected|Female|   F| 317|
+|Admitted|  Male|   F|  22|
+|Rejected|  Male|   F| 351|
++--------+------+----+----+
 
-Expected counts and (O-E)^2/E contributions:
-+--------+-------+-----+---+---+--------+-------+
-|purchase| device|count| rt| ct|expected|contrib|
-+--------+-------+-----+---+---+--------+-------+
-|      No|Desktop|   55|100|125|    62.5|    0.9|
-|     Yes|Desktop|   45|100| 75|    37.5|    1.5|
-|      No| Mobile|   70|100|125|    62.5|    0.9|
-|     Yes| Mobile|   30|100| 75|    37.5|    1.5|
-+--------+-------+-----+---+---+--------+-------+
+Observed 2x2 table, summed over the six departments:
++------+--------+--------+
+|Gender|Admitted|Rejected|
++------+--------+--------+
+|Female|     557|    1278|
+|  Male|    1198|    1493|
++------+--------+--------+
 
-Manual chi-square statistic = 4.8000, df = (2-1)(2-1) = 1
-Spark ChiSquareTest: statistic = 4.8000, df = 1, p-value = 0.0285
-scipy check:          statistic = 4.8000, p-value = 0.0285
+N = 4526. Expected counts E = row total x column total / N and (O-E)^2/E:
++------+--------+----+----+----+--------+-------+
+|Gender|   Admit|   O|  rt|  ct|       E|contrib|
++------+--------+----+----+----+--------+-------+
+|Female|Admitted| 557|1835|1755| 711.539|33.5642|
+|Female|Rejected|1278|1835|2771|1123.461|21.2578|
+|  Male|Admitted|1198|2691|1755|1043.461|22.8875|
+|  Male|Rejected|1493|2691|2771|1647.539|14.4957|
++------+--------+----+----+----+--------+-------+
+
+Manual chi-square statistic = 92.2053, df = (2-1)(2-1) = 1
+Expanded to 4526 applicant rows for ChiSquareTest
+Spark ChiSquareTest: statistic = 92.2053, df = 1, p-value = 0.000e+00
+scipy check:          statistic = 92.2053, p-value = 7.814e-22
 Critical value chi2(0.05, 1) = 3.8415
 Decision: REJECT H0
+Admission rate by gender (overall):
++------+-------------------+
+|Gender|         admit_rate|
++------+-------------------+
+|Female|0.30354223433242505|
+|  Male| 0.4451876625789669|
++------+-------------------+
+
+Same test within each department (Spark ChiSquareTest per Dept):
+  Dept male rate female rate      chi2    p-value
+  A        0.621       0.824    17.248     0.0000  REJECT H0
+  B        0.630       0.680     0.254     0.6145  FAIL TO REJECT H0
+  C        0.369       0.341     0.754     0.3854  FAIL TO REJECT H0
+  D        0.331       0.349     0.298     0.5852  FAIL TO REJECT H0
+  E        0.277       0.239     1.001     0.3171  FAIL TO REJECT H0
+  F        0.059       0.070     0.384     0.5354  FAIL TO REJECT H0
 
 ========================================================================
-2. STUDENT'S TWO-SAMPLE t-TEST  (exam scores, Method A vs Method B)
+2. STUDENT'S t-TEST  (sleep: extra hours of sleep, drug 1 vs drug 2)
 ========================================================================
-+------+---+----+------------------+------------------+
-|method|  n|mean|               var|                sd|
-+------+---+----+------------------+------------------+
-|     A| 10|82.0|15.999999999999996|3.9999999999999996|
-|     B| 10|74.0| 6.666666666666664|2.5819888974716108|
-+------+---+----+------------------+------------------+
++---+-----+-----+----+
+| ID|drug1|drug2|diff|
++---+-----+-----+----+
+|  1|  0.7|  1.9|-1.2|
+|  2| -1.6|  0.8|-2.4|
+|  3| -0.2|  1.1|-1.3|
+|  4| -1.2|  0.1|-1.3|
+|  5| -0.1| -0.1| 0.0|
+|  6|  3.4|  4.4|-1.0|
+|  7|  3.7|  5.5|-1.8|
+|  8|  0.8|  1.6|-0.8|
+|  9|  0.0|  4.6|-4.6|
+| 10|  2.0|  3.4|-1.4|
++---+-----+-----+----+
 
-pooled variance sp^2 = 11.3333, standard error = 1.5055
-Spark-computed t = 5.3137, df = 18, two-tailed p-value = 0.000047
-scipy check:      t = 5.3137, p-value = 0.000047
-Critical value t(0.025, 18) = 2.1009
-Decision: REJECT H0
-One-sample t-test (H0: mu_A = 75): t = 5.5340, df = 9, p = 0.000364  -> REJECT H0
++-----+---+------------------+------------------+------------------+
+|group|  n|              mean|               var|                sd|
++-----+---+------------------+------------------+------------------+
+|    1| 10|              0.75| 3.200555555555556|1.7890096577591625|
+|    2| 10|2.3299999999999996|4.0089999999999995| 2.002248735796829|
++-----+---+------------------+------------------+------------------+
+
+(a) Independent two-sample t-test (pooled / equal variances):
+  pooled variance sp^2 = 3.6048, standard error = 0.8491
+  Spark-computed t = -1.8608, df = 18, two-tailed p-value = 0.07919
+  scipy check:      t = -1.8608, p-value = 0.07919
+  Critical value t(0.025, 18) = 2.1009
+  Decision: FAIL TO REJECT H0
+(b) Paired t-test (the same 10 patients took both drugs - the correct design):
+  mean difference = -1.5800, sd of differences = 1.2300
+  Spark-computed t = -4.0621, df = 9, two-tailed p-value = 0.002833
+  scipy check:      t = -4.0621, p-value = 0.002833
+  Critical value t(0.025, 9) = 2.2622
+  Decision: REJECT H0
 
 ========================================================================
-3a. F-TEST FOR EQUAL VARIANCES  (fill volume, machine X vs Y)
+3a. F-TEST FOR EQUAL VARIANCES  (ToothGrowth: tooth length, OJ vs VC)
 ========================================================================
-+-------+---+-----+------------------+
-|machine|  n| mean|               var|
-+-------+---+-----+------------------+
-|      X| 10|501.0| 57.11111111111106|
-|      Y| 10|500.0|3.3333333333333335|
-+-------+---+-----+------------------+
++----+----+----+
+| len|supp|dose|
++----+----+----+
+| 4.2|  VC| 0.5|
+|11.5|  VC| 0.5|
+| 7.3|  VC| 0.5|
+| 5.8|  VC| 0.5|
+| 6.4|  VC| 0.5|
++----+----+----+
+only showing top 5 rows
++----+---+-----------------+-----------------+
+|supp|  n|             mean|              var|
++----+---+-----------------+-----------------+
+|  OJ| 30|20.66333333333333|43.63343678160919|
+|  VC| 30|16.96333333333333|68.32722988505749|
++----+---+-----------------+-----------------+
 
-F = s_X^2 / s_Y^2 = 57.1111 / 3.3333 = 17.1333, df = (9, 9), two-tailed p-value = 0.000245
-Critical value F(0.025; 9, 9) upper = 4.0260
-Decision: REJECT H0
+F = s_OJ^2 / s_VC^2 = 43.6334 / 68.3272 = 0.6386, df = (29, 29), two-tailed p-value = 0.2331
+Critical values F(0.025; 29, 29) = 0.4760 and F(0.975; 29, 29) = 2.1010
+Decision: FAIL TO REJECT H0
 
 ========================================================================
-3b. ONE-WAY ANOVA F-TEST  (crop yield by fertiliser)
+3b. ONE-WAY ANOVA F-TEST  (PlantGrowth: dried plant weight by group)
 ========================================================================
-+----------+---+----+
-|fertiliser|  n|mean|
-+----------+---+----+
-|       1.0|  5|22.0|
-|       2.0|  5|28.0|
-|       3.0|  5|20.0|
-+----------+---+----+
++-----+------------------------------------------------------------+
+|group|weights                                                     |
++-----+------------------------------------------------------------+
+|ctrl |[4.17, 5.58, 5.18, 6.11, 4.5, 4.61, 5.17, 4.53, 5.33, 5.14] |
+|trt1 |[4.81, 4.17, 4.41, 3.59, 5.87, 3.83, 6.03, 4.89, 4.32, 4.69]|
+|trt2 |[6.31, 5.12, 5.54, 5.5, 5.37, 5.29, 4.92, 6.15, 5.8, 5.26]  |
++-----+------------------------------------------------------------+
 
-grand mean = 23.3333
-SSB = 173.3333, SSW = 46.0000
-MSB = SSB/(k-1) = 86.6667, MSW = SSW/(N-k) = 3.8333
-Manual F = MSB/MSW = 22.6087, df = (2, 12)
-Spark ANOVATest: F = 22.6087, df = (2, 12), p-value = 0.000085
-scipy check:     F = 22.6087, p-value = 0.000085
-Critical value F(0.05; 2, 12) = 3.8853
++-----+---+-----+-------------------+
+|group|  n|    m|                var|
++-----+---+-----+-------------------+
+| ctrl| 10|5.032| 0.3399955555555556|
+| trt1| 10|4.661| 0.6299211111111113|
+| trt2| 10|5.526|0.19587111111111105|
++-----+---+-----+-------------------+
+
+grand mean = 5.0730
+SSB = 3.7663, SSW = 10.4921
+MSB = SSB/(k-1) = 1.8832, MSW = SSW/(N-k) = 0.3886
+Manual F = MSB/MSW = 4.8461, df = (2, 27)
+Spark ANOVATest: F = 4.8461, df = (2, 27), p-value = 0.01591
+scipy check:     F = 4.8461, p-value = 0.01591
+Critical value F(0.05; 2, 27) = 3.3541
 Decision: REJECT H0

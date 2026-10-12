@@ -8,22 +8,26 @@ date: "October 2026"
 # Overview
 
 This report answers the four midterm questions. Every concept is illustrated with
-(a) a small example dataset, (b) a hand computation that can be checked with a
+(a) a **real, published dataset**, (b) a hand computation that can be checked with a
 calculator, and (c) the same computation carried out on **Apache Spark**
 (PySpark, `pyspark.ml` / Spark MLlib). The Spark programs are submitted alongside this
 report:
 
-| Question | Spark program | Captured output |
-|---|---|---|
-| Q1 Similarity measures | `code/q1_similarity.py` | `outputs/q1_similarity.txt` |
-| Q2 Hypothesis testing | `code/q2_hypothesis_tests.py` | `outputs/q2_hypothesis_tests.txt` |
-| Q3 Clustering | `code/q3_clustering.py` | `outputs/q3_clustering.txt` |
-| Q4 Classification | `code/q4_classification.py` | `outputs/q4_classification.txt` |
+| Question | Spark program | Captured output | Real datasets used |
+|---|---|---|---|
+| Q1 Similarity measures | `code/q1_similarity.py` | `outputs/q1_similarity.txt` | MovieLens ratings (GroupLens) |
+| Q2 Hypothesis testing | `code/q2_hypothesis_tests.py` | `outputs/q2_hypothesis_tests.txt` | UCBAdmissions, sleep, ToothGrowth, PlantGrowth |
+| Q3 Clustering | `code/q3_clustering.py` | `outputs/q3_clustering.txt` | Iris, Old Faithful |
+| Q4 Classification | `code/q4_classification.py` | `outputs/q4_classification.txt` | Play Tennis, Iris, Spambase (spam7) |
+
+The data files are in `data/`, and their origins are listed in `data/SOURCES.md` and in
+the References.
 
 **Environment used to produce the outputs:** Apache Spark 4.0.1 (PySpark) in
 `local[*]` mode, Python 3.13, OpenJDK 21, SciPy 1.18 (used only to cross-check
-p-values). Each script runs with `spark-submit code/qN_*.py` or `python3 code/qN_*.py`.
-All numbers quoted below are copied from the captured outputs.
+p-values). Run each script from the `cosc611-midterm` folder with
+`spark-submit code/qN_*.py` or `python3 code/qN_*.py`. All numbers quoted below are
+copied from the captured outputs.
 
 \newpage
 
@@ -73,18 +77,30 @@ comparing every pair.
 
 ## 1.3 Example data
 
-Five users rated five movies on a 0–5 scale (0 = not watched):
+The data is the **MovieLens** "latest-small" ratings dataset collected by GroupLens
+at the University of Minnesota (Harper & Konstan, 2015), in the copy distributed with
+the R package `dslabs`. It contains **100,004 ratings** (0.5–5 stars) by **671 users**
+on **9,066 movies**.
 
-| User | Inception | Titanic | Avatar | Matrix | Frozen |
-|---|---|---|---|---|---|
-| Alice | 5 | 3 | 0 | 4 | 1 |
-| Bob   | 4 | 0 | 0 | 5 | 1 |
-| Carol | 1 | 5 | 4 | 0 | 5 |
-| Dave  | 5 | 4 | 1 | 4 | 0 |
-| Eve   | 0 | 5 | 5 | 1 | 4 |
+For the hand computations, the program takes the **6 most-rated movies** and the
+**first 5 users (by user ID) who rated at least 4 of them**. A 0 means the user did
+not rate the movie.
 
-In the hand computations below, $A$ = Alice = (5, 3, 0, 4, 1) and
-$D$ = Dave = (5, 4, 1, 4, 0).
+| User | Forrest Gump | Pulp Fiction | Shawshank Redemption | Silence of the Lambs | Star Wars IV | Jurassic Park |
+|---|---|---|---|---|---|---|
+| user2 | 3.0 | 4.0 | 0 | 3.0 | 0 | 4.0 |
+| user3 | 5.0 | 4.5 | 5.0 | 3.0 | 0 | 0 |
+| user4 | 5.0 | 5.0 | 0 | 0 | 5.0 | 5.0 |
+| user7 | 3.0 | 0 | 5.0 | 0 | 5.0 | 4.0 |
+| user8 | 4.0 | 4.0 | 5.0 | 4.5 | 3.5 | 0 |
+
+These movies were rated by 341, 324, 311, 304, 291 and 274 users respectively. In the
+hand computations below, $x$ = user3 = (5, 4.5, 5, 3, 0, 0) and
+$y$ = user8 = (4, 4, 5, 4.5, 3.5, 0).
+
+Filling unrated movies with 0 is a common simplification. It treats "not rated" as
+"disliked", which real recommender systems avoid by comparing only co-rated items
+or by mean-centring.
 
 ## 1.4 Types of similarity measures, with computations
 
@@ -93,8 +109,9 @@ $D$ = Dave = (5, 4, 1, 4, 0).
 The straight-line distance between two points:
 $$d_E(x,y)=\sqrt{\sum_i (x_i-y_i)^2}, \qquad s_E = \frac{1}{1+d_E}$$
 
-$A-D = (0,-1,-1,0,1)$, so
-$d_E = \sqrt{0+1+1+0+1} = \sqrt3 = 1.7321$ and $s_E = 1/(1+1.7321) = 0.3660$.
+$x-y = (1, 0.5, 0, -1.5, -3.5, 0)$, so
+$d_E = \sqrt{1+0.25+0+2.25+12.25+0} = \sqrt{15.75} = 3.9686$ and
+$s_E = 1/(1+3.9686) = 0.2013$.
 
 Euclidean distance is sensitive to scale and magnitude. It is a natural fit for
 dense, low-dimensional numeric data such as K-Means features.
@@ -103,7 +120,7 @@ dense, low-dimensional numeric data such as K-Means features.
 
 $$d_M(x,y) = \sum_i |x_i-y_i|$$
 
-$d_M(A,D) = 0+1+1+0+1 = 3$. Manhattan distance is less affected by one large
+$d_M = 1+0.5+0+1.5+3.5+0 = 6.5$. Manhattan distance is less affected by one large
 difference than Euclidean distance, so it is more robust to outliers.
 
 ### (c) Cosine similarity
@@ -112,14 +129,14 @@ The cosine of the angle between two vectors. It measures orientation rather than
 magnitude:
 $$\cos(x,y)=\frac{x\cdot y}{\lVert x\rVert\,\lVert y\rVert}$$
 
-* $A\cdot D = 25+12+0+16+0 = 53$
-* $\lVert A\rVert = \sqrt{25+9+0+16+1}=\sqrt{51}=7.1414$
-* $\lVert D\rVert = \sqrt{25+16+1+16+0}=\sqrt{58}=7.6158$
-* $\cos(A,D) = 53/(7.1414\times7.6158) = 53/54.387 = \mathbf{0.9745}$
+* $x\cdot y = 20+18+25+13.5+0+0 = 76.5$
+* $\lVert x\rVert = \sqrt{25+20.25+25+9}=\sqrt{79.25}=8.9022$
+* $\lVert y\rVert = \sqrt{16+16+25+20.25+12.25}=\sqrt{89.5}=9.4604$
+* $\cos(x,y) = 76.5/(8.9022\times9.4604) = 76.5/84.219 = \mathbf{0.9083}$
 
 The range is $[-1,1]$, or $[0,1]$ for non-negative data. Cosine is the standard
-measure for text (TF-IDF vectors) and sparse high-dimensional data. A long
-document and a short one about the same topic still get a high score.
+measure for text (TF-IDF vectors) and for sparse, high-dimensional data such as a
+user's ratings over 9,066 movies.
 
 ### (d) Pearson correlation coefficient
 
@@ -127,26 +144,30 @@ Cosine similarity applied after **mean-centring** each vector. This removes each
 user's personal rating bias (a "harsh" rater versus a "generous" one):
 $$r(x,y)=\frac{\sum_i (x_i-\bar x)(y_i-\bar y)}{\sqrt{\sum_i (x_i-\bar x)^2}\sqrt{\sum_i (y_i-\bar y)^2}}$$
 
-* $\bar A = 13/5 = 2.6$ and $\bar D = 14/5 = 2.8$
-* Deviations: $A' = (2.4, 0.4, -2.6, 1.4, -1.6)$ and $D' = (2.2, 1.2, -1.8, 1.2, -2.8)$
-* $\sum A'D' = 5.28+0.48+4.68+1.68+4.48 = 16.6$
-* $\sum A'^2 = 17.2$ and $\sum D'^2 = 18.8$
-* $r = 16.6/\sqrt{17.2\times18.8} = 16.6/17.982 = \mathbf{0.9231}$
+* $\bar x = 17.5/6 = 2.9167$ and $\bar y = 21/6 = 3.5$
+* Deviations: $x' = (2.083, 1.583, 2.083, 0.083, -2.917, -2.917)$ and
+  $y' = (0.5, 0.5, 1.5, 1.0, 0, -3.5)$
+* $\sum x'y' = 1.042+0.792+3.125+0.083+0+10.208 = 15.25$
+* $\sum x'^2 = 28.208$ and $\sum y'^2 = 16$
+* $r = 15.25/\sqrt{28.208\times16} = 15.25/21.245 = \mathbf{0.7178}$
 
-The range is $[-1,1]$, where $-1$ means opposite tastes. Alice versus Eve gives
-$r = -0.82$: their tastes are strongly opposed.
+The range is $[-1,1]$, where $-1$ means opposite tastes.
 
 ### (e) Jaccard similarity (sets)
 
 Jaccard similarity is used when the data is a **set** or binary presence/absence
-(which movies were watched, which words appear):
+(which movies were rated, which genres a movie has, which words appear):
 $$J(S,T)=\frac{|S\cap T|}{|S\cup T|}$$
 
-* Alice watched {Inception, Titanic, Matrix, Frozen}.
-* Dave watched {Inception, Titanic, Avatar, Matrix}.
-* Intersection = 3 and union = 5, so $J = 3/5 = 0.6$.
-* Bob watched {Inception, Matrix, Frozen}, which is a subset of Alice's set, so
-  $J(A,B) = 3/4 = 0.75$.
+* user3 rated {Forrest Gump, Pulp Fiction, Shawshank, Silence of the Lambs}.
+* user8 rated those four plus Star Wars IV.
+* Intersection = 4 and union = 5, so $J = 4/5 = 0.8$.
+
+**Genre sets (real MovieLens genre labels):**
+
+* The Matrix = {Action, Sci-Fi, Thriller}
+* Jurassic Park = {Action, Adventure, Sci-Fi, Thriller}
+* So $J = 3/4 = 0.75$.
 
 Other measures for binary data include the **Simple Matching Coefficient**, which
 also counts shared 0s, the **Hamming distance**, which counts positions that differ,
@@ -155,10 +176,10 @@ and the **Dice coefficient** $2|S\cap T|/(|S|+|T|)$. For text there is also **ed
 
 ## 1.5 Computation on Spark
 
-`code/q1_similarity.py` loads the rating matrix into a Spark DataFrame of
-`Vectors.dense` features. It then **self cross-joins** the DataFrame to form every
-user pair and evaluates each measure on the pair. This is the distributed form of
-the $n^2$ comparison.
+`code/q1_similarity.py` reads the 100,004 ratings with `spark.read.csv` and selects
+the 5 × 6 matrix with DataFrame operations (`groupBy`, `orderBy`, `isin`). It then
+**self cross-joins** the users to form every pair and evaluates each measure on the
+pair. This is the distributed form of the $n^2$ comparison.
 
 ```python
 a, b = df.alias("a"), df.alias("b")
@@ -173,62 +194,86 @@ Spark output (all 10 pairs):
 
 | u1 | u2 | Euclidean | 1/(1+d) | Manhattan | Cosine | Pearson | Jaccard |
 |---|---|---|---|---|---|---|---|
-| Alice | Bob   | 3.3166 | 0.2317 | 5  | 0.8859 | 0.7711 | **0.75** |
-| Alice | Carol | 8.2462 | 0.1082 | 18 | 0.4277 | −0.7197 | 0.60 |
-| Alice | Dave  | **1.7321** | **0.3660** | **3** | **0.9745** | **0.9231** | 0.60 |
-| Alice | Eve   | 8.4853 | 0.1054 | 18 | 0.3935 | −0.8225 | 0.60 |
-| Bob   | Carol | 9.5394 | 0.0949 | 21 | 0.1697 | −0.9545 | 0.40 |
-| Bob   | Dave  | 4.4721 | 0.1827 | 8  | 0.8104 | 0.5901 | 0.40 |
-| Bob   | Eve   | 9.5394 | 0.0949 | 21 | 0.1697 | −0.9545 | 0.40 |
-| Carol | Dave  | 8.1854 | 0.1089 | 17 | 0.4652 | −0.6392 | 0.60 |
-| Carol | Eve   | 2.0000 | 0.3333 | 4  | 0.9701 | 0.9091 | 0.60 |
-| Dave  | Eve   | 8.1854 | 0.1089 | 17 | 0.4652 | −0.6392 | 0.60 |
+| user2 | user3 | 6.7268 | 0.1294 | 11.5 | 0.6672 | 0.0528 | 0.6000 |
+| user2 | user4 | 6.3246 | 0.1365 | 12.0 | 0.7778 | 0.3467 | 0.6000 |
+| user2 | user7 | 8.6603 | 0.1035 | 17.0 | 0.4082 | −0.6801 | 0.3333 |
+| user2 | user8 | 7.5166 | 0.1174 | 15.0 | 0.6204 | **−0.4504** | 0.5000 |
+| user3 | user4 | 9.1788 | 0.0982 | 18.5 | 0.5336 | −0.3533 | 0.3333 |
+| user3 | user7 | 8.6168 | 0.1040 | 18.5 | 0.5188 | −0.3483 | 0.3333 |
+| user3 | user8 | **3.9686** | **0.2013** | **6.5** | **0.9083** | **0.7178** | **0.8000** |
+| user4 | user7 | 7.4162 | 0.1188 | 13.0 | 0.6928 | 0.1115 | 0.6000 |
+| user4 | user8 | 8.6313 | 0.1038 | 18.0 | 0.6078 | −0.5413 | 0.5000 |
+| user7 | user8 | 7.4498 | 0.1183 | 15.0 | 0.6652 | −0.2413 | 0.5000 |
 
-The Spark values match the hand computations for Alice–Dave exactly.
+The Spark values match the hand computations for user3–user8 exactly.
 
 The script also shows three **Spark-native** ways of computing these measures:
 
 1. **Cosine via `Normalizer`.** `Normalizer(p=2.0)` scales every vector to unit
    length, so a plain dot product of two unit vectors *is* the cosine. Spark gives
-   the same values, for example Alice–Dave = 0.9745 and Carol–Eve = 0.9701.
+   the same values, for example user3–user8 = 0.9083.
 2. **Pearson via `pyspark.ml.stat.Correlation.corr`.** This computes the full
    correlation matrix in one distributed pass. (Spark correlates columns, so the
    matrix is transposed so that each user is a column.)
 
    ```
-               Alice     Bob   Carol    Dave     Eve
-      Alice    1.000   0.771  -0.720   0.923  -0.823
-        Bob    0.771   1.000  -0.955   0.590  -0.955
-      Carol   -0.720  -0.955   1.000  -0.639   0.909
-       Dave    0.923   0.590  -0.639   1.000  -0.639
-        Eve   -0.823  -0.955   0.909  -0.639   1.000
+                user2   user3   user4   user7   user8
+       user2    1.000   0.053   0.347  -0.680  -0.450
+       user3    0.053   1.000  -0.353  -0.348   0.718
+       user4    0.347  -0.353   1.000   0.111  -0.541
+       user7   -0.680  -0.348   0.111   1.000  -0.241
+       user8   -0.450   0.718  -0.541  -0.241   1.000
    ```
-3. **Jaccard at scale via `MinHashLSH`.** MinHash hashes each set so that the
-   probability that two sets get the same hash *equals* their Jaccard similarity.
-   `approxSimilarityJoin` then compares only pairs that land in the same bucket,
-   instead of all $n^2$ pairs. With 50 hash tables, the approximate Jaccard
-   matched the exact value for every pair here (for example Alice–Bob 0.75 and
-   Bob–Carol 0.40). On millions of users, this is what makes the computation
-   feasible.
+3. **Cosine nearest neighbours at full scale.** Each of the 671 users becomes a
+   sparse vector over all movies, built with `groupBy` + `collect_list` and a
+   `SparseVector`. After normalising, user8's vector is broadcast and dotted with
+   every other user. The 5 most similar users to user8 out of all 670 are users
+   520 (0.4403), 216 (0.4327), 562 (0.4294), 379 (0.4217) and 282 (0.4067). These
+   scores are lower than in the 5-movie example because two users share only a
+   small fraction of the 9,066 movies.
 
-**Text example.** The script also tokenises three short documents (`Tokenizer` +
-`CountVectorizer`):
+**Jaccard at scale: MinHash LSH on genre sets.** The script turns the genre list of
+each of the 9,049 movies that have genres into a binary vector over the 19 genres
+(`CountVectorizer(binary=True)`). The exact Jaccard similarities for five
+well-known movies are:
 
-| pair | Cosine | Jaccard |
+| Movie 1 | Movie 2 | Jaccard |
 |---|---|---|
-| "big data analytics with spark" vs "spark makes big data processing fast" | 0.5477 | 0.375 |
-| either of those vs "the cat sat on the mat" | 0.0 | 0.0 |
+| Jurassic Park | The Matrix | 0.7500 |
+| Forrest Gump | Pulp Fiction | 0.3333 |
+| The Matrix | Pulp Fiction | 0.1667 |
+| Jurassic Park | Pulp Fiction | 0.1429 |
+| Toy Story | Forrest Gump / Jurassic Park / Pulp Fiction | 0.1250 |
+| Forrest Gump | The Matrix / Jurassic Park | 0.0 |
 
-The first pair shares 3 words (*big, data, spark*), so $J = 3/8 = 0.375$ and
-$\cos = 3/\sqrt{5\cdot6} = 0.5477$.
+`MinHashLSH` hashes each set so that the probability that two sets get the same hash
+*equals* their Jaccard similarity. Only pairs that collide in some hash table are
+compared:
+
+* `approxNearestNeighbors` for *The Matrix* returns movies with exactly the same
+  genres (Jaccard distance 0), such as *The Terminator*, *Blade Runner* and
+  *Equilibrium*.
+* `approxSimilarityJoin` with distance ≤ 0.2 (Jaccard ≥ 0.8) found
+  **1,413,821** pairs without comparing all 40,937,676 pairs one by one.
+* An exact brute-force check, also done in Spark, gives the same **1,413,821**, so
+  the LSH recall is 1.0 here. Most of these pairs (1,406,827) are movies with
+  identical genre sets, for example two movies labelled only "Drama".
 
 ## 1.6 Interpretation: the choice of measure matters
 
-The question "who is most like Alice?" gets different answers. Euclidean,
-Manhattan, cosine and Pearson all choose **Dave**, because Dave's ratings have the
-same values and the same pattern. Jaccard chooses **Bob** (0.75), because Jaccard
-ignores the rating values and only looks at *which* movies were watched. In
-general:
+* For user8, every measure picks **user3** as the most similar user: the same
+  movies, rated in a similar pattern.
+* **user2 and user8** show why the measure matters. Their cosine similarity is
+  fairly high (0.62), but their Pearson correlation is **negative (−0.45)**.
+  Ratings are all non-negative, so the cosine of raw ratings is always ≥ 0. It
+  mostly reflects that both users rate movies highly in general. Once each user's
+  average is subtracted, Pearson shows that the two users *prefer different
+  movies*.
+* **Jaccard** ignores the ratings entirely and only uses *which* movies were
+  rated. That makes it the right choice for genre sets, but it would call a lover
+  and a hater of the same movies "identical".
+
+In general:
 
 * Use **cosine** for text and sparse vectors.
 * Use **Pearson** for ratings with user bias.
@@ -282,117 +327,161 @@ two-group ANOVA is the same test as a two-sample t-test. The χ² distribution i
 distribution of a sum of squared standard normals, and $F$ is a ratio of two scaled
 χ² variables.
 
-## 2.3 Chi-square test of independence
+## 2.3 Chi-square test of independence — UC Berkeley admissions
 
-**Example.** An online store records 200 customers' device and whether they made a
-purchase.
+**Data.** `UCBAdmissions` records the 4,526 applicants to the six largest graduate
+departments at UC Berkeley in Fall 1973, by gender and admission decision
+(Bickel, Hammel & O'Connell, 1975). Summed over the departments:
 
-| Observed | Purchase = Yes | Purchase = No | Row total |
+| Observed | Admitted | Rejected | Row total |
 |---|---|---|---|
-| Mobile | 30 | 70 | 100 |
-| Desktop | 45 | 55 | 100 |
-| Column total | 75 | 125 | N = 200 |
+| Male | 1198 | 1493 | 2691 |
+| Female | 557 | 1278 | 1835 |
+| Column total | 1755 | 2771 | N = 4526 |
 
-$H_0$: device and purchase are independent. $H_1$: they are associated.
+$H_0$: admission is independent of gender. $H_1$: they are associated.
 
 **Hand computation.** The expected count for each cell is
 $E = \frac{\text{row total}\times\text{column total}}{N}$:
 
-* $E_{Mobile,Yes} = 100\cdot75/200 = 37.5$ and $E_{Mobile,No} = 62.5$
-* The Desktop row has the same expected counts.
+| Cell | O | E | (O−E)²/E |
+|---|---|---|---|
+| Male, Admitted | 1198 | 2691·1755/4526 = 1043.461 | 22.8875 |
+| Male, Rejected | 1493 | 2691·2771/4526 = 1647.539 | 14.4957 |
+| Female, Admitted | 557 | 1835·1755/4526 = 711.539 | 33.5642 |
+| Female, Rejected | 1278 | 1835·2771/4526 = 1123.461 | 21.2578 |
 
-$$\chi^2 = \frac{(30-37.5)^2}{37.5} + \frac{(70-62.5)^2}{62.5} + \frac{(45-37.5)^2}{37.5} + \frac{(55-62.5)^2}{62.5} = 1.5+0.9+1.5+0.9 = \mathbf{4.8}$$
+$$\chi^2 = 22.8875+14.4957+33.5642+21.2578 = \mathbf{92.21}$$
 
 The degrees of freedom are $(2-1)(2-1)=1$, and the critical value is
-$\chi^2_{0.05,1} = 3.8415$. Since $4.8 > 3.8415$, **reject $H_0$**: purchase rate
-depends on the device (30% on mobile versus 45% on desktop).
+$\chi^2_{0.05,1}=3.8415$. Since $92.21 \gg 3.84$, **reject $H_0$**: overall, 44.5% of
+men but only 30.4% of women were admitted.
 
-**Spark.** `DataFrame.crosstab` builds the table, and a groupBy/join pipeline
-reproduces the $(O-E)^2/E$ contributions (0.9, 1.5, 0.9, 1.5). The built-in MLlib
-test is then run on a numeric label and a feature vector:
-
-```python
-r = ChiSquareTest.test(enc, "features", "label").head()
-# Spark ChiSquareTest: statistic = 4.8000, df = 1, p-value = 0.0285
-# scipy check:          statistic = 4.8000, p-value = 0.0285
-```
-
-$p = 0.0285 < 0.05$, so we reject $H_0$.
-
-## 2.4 Student's t-test
-
-**Example.** Ten students were taught with Method A and ten with Method B. Their
-exam scores were:
-
-* A: 78, 82, 85, 88, 75, 80, 84, 86, 79, 83
-* B: 72, 75, 78, 70, 74, 77, 73, 76, 71, 74
-
-$H_0$: $\mu_A = \mu_B$. $H_1$: $\mu_A \ne \mu_B$ (two-tailed, equal variances
-assumed).
-
-**Hand computation.**
-
-* $\bar x_A = 82$, $s_A^2 = 16$; $\bar x_B = 74$, $s_B^2 = 6.667$
-* Pooled variance: $s_p^2 = \frac{9(16)+9(6.667)}{18} = 11.333$
-* Standard error: $SE = \sqrt{11.333\,(1/10+1/10)} = 1.5055$
-* $t = (82-74)/1.5055 = \mathbf{5.3137}$, with $df = 18$
-
-The critical value is $t_{0.025,18} = 2.1009$. Since $|t| > 2.1009$, **reject
-$H_0$**: Method A gives significantly higher scores.
-
-**Spark.** MLlib has no t-test class, but the test only needs the count, mean and
-sample variance of each group. These are computed in **one distributed
-aggregation**, which scales to billions of rows. Only the final scalar formula and
-the t-distribution lookup run on the driver.
+**Spark.** `groupBy().pivot()` builds the table, and a groupBy/join pipeline
+reproduces the $(O-E)^2/E$ column above. For MLlib's built-in test, each frequency
+row is expanded into one row per applicant with `explode(sequence(1, Freq))`, which
+gives 4,526 rows:
 
 ```python
-summ = scores.groupBy("method").agg(F.count("score"), F.mean("score"),
-                                    F.var_samp("score"), F.stddev_samp("score"))
-# Spark-computed t = 5.3137, df = 18, two-tailed p-value = 0.000047
-# scipy check:      t = 5.3137, p-value = 0.000047
+r = ChiSquareTest.test(vec, "features", "label").head()
+# Spark ChiSquareTest: statistic = 92.2053, df = 1, p-value = 0.000e+00
+# scipy check:          statistic = 92.2053, p-value = 7.814e-22
 ```
 
-The script also runs a **one-sample t-test** ($H_0$: $\mu_A = 75$): $t = 5.534$,
-$df = 9$, $p = 0.00036$, so we reject $H_0$.
+Spark prints the p-value as 0 because the true value, $7.8\times10^{-22}$, is
+below the precision of its χ² tail computation. SciPy gives the exact figure.
+
+**Simpson's paradox.** Running the same Spark `ChiSquareTest` *inside each
+department* reverses the story:
+
+| Dept | Male admit rate | Female admit rate | χ² | p-value | Decision |
+|---|---|---|---|---|---|
+| A | 0.621 | 0.824 | 17.248 | <0.0001 | Reject H₀ (favours women) |
+| B | 0.630 | 0.680 | 0.254 | 0.6145 | Fail to reject |
+| C | 0.369 | 0.341 | 0.754 | 0.3854 | Fail to reject |
+| D | 0.331 | 0.349 | 0.298 | 0.5852 | Fail to reject |
+| E | 0.277 | 0.239 | 1.001 | 0.3171 | Fail to reject |
+| F | 0.059 | 0.070 | 0.384 | 0.5354 | Fail to reject |
+
+Women mostly applied to departments with low admission rates (C–F). The overall
+association is real, but it is explained by *department*, a confounding variable,
+not by bias within departments. This was the conclusion of Bickel et al. (1975). A
+significant χ² shows association, not cause.
+
+## 2.4 Student's t-test — the sleep data
+
+**Data.** `sleep` is the dataset that W. S. Gosset ("Student") used in the 1908
+paper that introduced the t-test. It is taken from Cushny & Peebles (1905). Ten
+patients each received two sleep-inducing drugs, and the extra hours of sleep
+compared with a control were recorded:
+
+| Patient | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Drug 1 | 0.7 | −1.6 | −0.2 | −1.2 | −0.1 | 3.4 | 3.7 | 0.8 | 0.0 | 2.0 |
+| Drug 2 | 1.9 | 0.8 | 1.1 | 0.1 | −0.1 | 4.4 | 5.5 | 1.6 | 4.6 | 3.4 |
+| Difference | −1.2 | −2.4 | −1.3 | −1.3 | 0.0 | −1.0 | −1.8 | −0.8 | −4.6 | −1.4 |
+
+$H_0$: $\mu_1 = \mu_2$. $H_1$: $\mu_1 \ne \mu_2$ (two-tailed).
+
+**(a) Independent two-sample t-test (pooled variance).**
+
+* $\bar x_1 = 0.75$, $s_1^2 = 3.2006$; $\bar x_2 = 2.33$, $s_2^2 = 4.0090$
+* Pooled variance: $s_p^2 = \frac{9(3.2006)+9(4.0090)}{18} = 3.6048$
+* Standard error: $SE = \sqrt{3.6048(1/10+1/10)} = 0.8491$
+* $t = (0.75-2.33)/0.8491 = \mathbf{-1.8608}$, with $df = 18$
+
+The critical value is $t_{0.025,18} = 2.1009$ and $p = 0.0792$. Since
+$|t| < 2.1009$, we **fail to reject $H_0$**.
+
+**(b) Paired t-test.** The *same* ten patients took both drugs, so the correct
+analysis uses the ten differences $d_i$:
+
+* $\bar d = -1.58$ and $s_d = 1.2300$
+* $t = \bar d/(s_d/\sqrt{n}) = -1.58/(1.23/\sqrt{10}) = \mathbf{-4.0621}$, with $df = 9$
+
+The critical value is $t_{0.025,9} = 2.2622$ and $p = 0.0028$, so we **reject
+$H_0$**: drug 2 gives more extra sleep.
+
+The two versions reach opposite conclusions on the same data. The paired test
+removes the large patient-to-patient variability, which the independent test
+wrongly treats as noise. Choosing the test that matches the study design is part of
+hypothesis testing.
+
+**Spark.** MLlib has no t-test class, but the test only needs counts, means and
+sample variances. These come from **one distributed aggregation**:
+`groupBy("group").agg(count, mean, var_samp)` for (a), and
+`pivot` + `mean`/`stddev_samp` of the differences for (b). Only the final scalar
+formula and the t-distribution tail probability run on the driver:
+
+```
+(a) Spark-computed t = -1.8608, df = 18, p = 0.07919   | scipy: t = -1.8608, p = 0.07919
+(b) Spark-computed t = -4.0621, df = 9,  p = 0.002833  | scipy: t = -4.0621, p = 0.002833
+```
 
 ## 2.5 F-test
 
-### (a) F-test for equality of two variances
+### (a) F-test for equality of two variances — ToothGrowth
 
-**Example.** Two bottling machines each fill 10 bottles (in ml):
+**Data.** `ToothGrowth` (Crampton, 1947) gives the length of odontoblasts (the cells
+responsible for tooth growth) in 60 guinea pigs. Each received vitamin C either as
+orange juice (OJ, n = 30) or as ascorbic acid (VC, n = 30).
 
-* Machine X: 502, 498, 510, 495, 505, 490, 512, 497, 508, 493
-* Machine Y: 500, 501, 499, 502, 498, 500, 501, 499, 503, 497
+$H_0$: $\sigma_{OJ}^2 = \sigma_{VC}^2$. $H_1$: $\sigma_{OJ}^2 \ne \sigma_{VC}^2$.
 
-$H_0$: $\sigma_X^2 = \sigma_Y^2$. $H_1$: $\sigma_X^2 \ne \sigma_Y^2$.
+* Spark aggregates give $s_{OJ}^2 = 43.633$ and $s_{VC}^2 = 68.327$.
+* $F = 43.633/68.327 = \mathbf{0.6386}$, with $df = (29, 29)$.
+* The two-tailed critical values are $F_{0.025;29,29}=0.4760$ and
+  $F_{0.975;29,29}=2.1010$.
+* $p = 0.2331$.
 
-The sample variances are $s_X^2 = 57.111$ and $s_Y^2 = 3.333$, so
-$F = 57.111/3.333 = \mathbf{17.13}$ with $df = (9, 9)$. The upper critical value is
-$F_{0.025;9,9} = 4.026$. Since $F > 4.026$, **reject $H_0$**: Machine X is far less
-consistent. Both machines have almost the same *mean* (501 vs 500 ml), so a t-test
-would miss this problem. The F-test catches it.
+Since $0.476 < 0.6386 < 2.101$, we **fail to reject $H_0$**: there is no evidence
+that the two supplement types give different variability. Equal variances are one
+of the assumptions of the pooled t-test and of ANOVA, so this F-test is often run
+first as a check.
 
-Spark computes `var_samp` per group in a single aggregation and gives
-F = 17.1333 with p = 0.000245.
+### (b) One-way ANOVA F-test — PlantGrowth
 
-### (b) One-way ANOVA F-test (comparing 3 or more means)
+**Data.** `PlantGrowth` (Dobson, 1983) records the dried weight of 30 plants: 10
+controls and 10 under each of two treatments.
 
-**Example.** Crop yield for three fertilisers, with 5 plots each:
+| Group | Weights | Mean |
+|---|---|---|
+| ctrl | 4.17, 5.58, 5.18, 6.11, 4.50, 4.61, 5.17, 4.53, 5.33, 5.14 | 5.032 |
+| trt1 | 4.81, 4.17, 4.41, 3.59, 5.87, 3.83, 6.03, 4.89, 4.32, 4.69 | 4.661 |
+| trt2 | 6.31, 5.12, 5.54, 5.50, 5.37, 5.29, 4.92, 6.15, 5.80, 5.26 | 5.526 |
 
-* F1: 20, 22, 19, 24, 25 (mean 22)
-* F2: 28, 30, 27, 26, 29 (mean 28)
-* F3: 18, 20, 22, 19, 21 (mean 20)
+$H_0$: $\mu_{ctrl}=\mu_{trt1}=\mu_{trt2}$. $H_1$: at least one mean differs.
 
-$H_0$: $\mu_1=\mu_2=\mu_3$. $H_1$: at least one mean differs.
+**Hand computation.** The grand mean is $5.073$.
 
-**Hand computation.** The grand mean is $23.333$.
+* $SSB = 10[(5.032-5.073)^2+(4.661-5.073)^2+(5.526-5.073)^2] = 10(0.00168+0.16974+0.20521) = 3.7663$
+* $SSW = \sum_g\sum_i (x_{gi}-\bar x_g)^2 = 9(0.33999+0.62992+0.19587) = 10.4921$
+* $MSB = 3.7663/2 = 1.8832$ and $MSW = 10.4921/27 = 0.3886$
+* $F = 1.8832/0.3886 = \mathbf{4.846}$, with $df = (2, 27)$
 
-* $SSB = 5[(22-23.33)^2+(28-23.33)^2+(20-23.33)^2] = 173.33$
-* $SSW = 26 + 10 + 10 = 46$
-* $MSB = 173.33/2 = 86.667$ and $MSW = 46/12 = 3.833$
-* $F = 86.667/3.833 = \mathbf{22.61}$, with $df = (2, 12)$
-
-The critical value is $F_{0.05;2,12} = 3.885$, so **reject $H_0$**.
+The critical value is $F_{0.05;2,27} = 3.354$ and $p = 0.0159$, so **reject
+$H_0$**: the treatments affect plant weight. Treatment 2 has the highest mean and
+treatment 1 the lowest.
 
 **Spark.** The ANOVA table is computed with DataFrame aggregations, and Spark's
 `org.apache.spark.ml.stat.ANOVATest` is also called. That class has no Python
@@ -400,18 +489,19 @@ wrapper in PySpark 4.0, so the script calls it through the JVM gateway:
 
 ```python
 jdf = spark._jvm.org.apache.spark.ml.stat.ANOVATest.test(anova_df._jdf, "features", "label")
-# Spark ANOVATest: F = 22.6087, df = (2, 12), p-value = 0.000085
-# scipy check:     F = 22.6087, p-value = 0.000085
+# Spark ANOVATest: F = 4.8461, df = (2, 27), p-value = 0.01591
+# scipy check:     F = 4.8461, p-value = 0.01591
 ```
 
 ## 2.6 Summary of results
 
-| Test | Statistic | df | p-value | Critical value (α=0.05) | Decision |
-|---|---|---|---|---|---|
-| χ² independence | 4.80 | 1 | 0.0285 | 3.84 | Reject H₀ |
-| Two-sample t | 5.31 | 18 | 0.000047 | ±2.10 | Reject H₀ |
-| F (variances) | 17.13 | (9, 9) | 0.000245 | 4.03 | Reject H₀ |
-| ANOVA F | 22.61 | (2, 12) | 0.000085 | 3.89 | Reject H₀ |
+| Test | Dataset | Statistic | df | p-value | Critical value (α=0.05) | Decision |
+|---|---|---|---|---|---|---|
+| χ² independence | UCBAdmissions | 92.21 | 1 | 7.8×10⁻²² | 3.84 | Reject H₀ |
+| Two-sample t (pooled) | sleep | −1.86 | 18 | 0.0792 | ±2.10 | Fail to reject H₀ |
+| Paired t | sleep | −4.06 | 9 | 0.0028 | ±2.26 | Reject H₀ |
+| F (variances) | ToothGrowth | 0.639 | (29, 29) | 0.2331 | 0.476 / 2.101 | Fail to reject H₀ |
+| ANOVA F | PlantGrowth | 4.846 | (2, 27) | 0.0159 | 3.354 | Reject H₀ |
 
 \newpage
 
@@ -437,21 +527,29 @@ reinforcement learning sit between these two.
 
 ## 3.2 Example data
 
-Twenty-five mall customers are described by **annual income (k\$)** and **spending
-score (1–100)**. The data was built with five natural segments of five customers
-each:
+**Iris** (Anderson, 1935; Fisher, 1936) contains 150 iris flowers, 50 from each of
+three species: *setosa*, *versicolor* and *virginica*. Each flower has four
+measurements in cm: sepal length, sepal width, petal length and petal width. The
+species means are:
 
-| Segment | Customers | Income | Spending |
-|---|---|---|---|
-| Low income, low spending | 1–5 | 15–23 | 33–40 |
-| Low income, high spending | 6–10 | 16–24 | 77–85 |
-| Mid income, mid spending | 11–15 | 60–65 | 45–55 |
-| High income, high spending | 16–20 | 97–105 | 85–92 |
-| High income, low spending | 21–25 | 96–104 | 12–22 |
+| Species | Sepal L | Sepal W | Petal L | Petal W |
+|---|---|---|---|---|
+| setosa | 5.006 | 3.428 | 1.462 | 0.246 |
+| versicolor | 5.936 | 2.770 | 4.260 | 1.326 |
+| virginica | 6.588 | 2.974 | 5.552 | 2.026 |
 
-All three algorithms below run on this data in `code/q3_clustering.py`, with
-`VectorAssembler` building the feature vector and `ClusteringEvaluator`
-(silhouette) used for evaluation.
+The algorithms see **only the four measurements**. The species label is held back
+and used only afterwards, to check how well each algorithm discovered the true
+groups. This is a standard way to evaluate an unsupervised method on data where the
+answer happens to be known.
+
+**Old Faithful** (R `faithful`; Härdle, 1991; see also Azzalini & Bowman, 1990)
+records 272 eruptions of the Old Faithful geyser in Yellowstone National Park:
+eruption duration and waiting time, in minutes. It is used below to show soft
+clustering with a Gaussian Mixture.
+
+All algorithms run in `code/q3_clustering.py`, with `VectorAssembler` building the
+feature vector and `ClusteringEvaluator` (silhouette) used for evaluation.
 
 ## 3.3 Algorithm 1 — K-Means (partitional, hard clustering)
 
@@ -469,38 +567,49 @@ centroids with **k-means||**, a parallel version of k-means++, and each iteratio
 one map (assign) plus one reduce (sum the points per cluster). This makes K-Means a
 natural fit for MapReduce and Spark.
 
-**Hand computation (one iteration, k = 2, four points).** The four points are
-P1(15,39), P2(19,40), P3(60,50) and P4(64,45). The initial centroids are C1 = P1 and
-C2 = P3.
+**Hand computation (one iteration, k = 2).** The four flowers are iris rows 1 and 44
+(setosa) and rows 51 and 78 (versicolor), using petal length and width. The initial
+centroids are C1 = flower 1 and C2 = flower 51.
 
-| Point | d(C1) | d(C2) | Assigned |
+| Flower (petal L, W) | d(C1) | d(C2) | Assigned |
 |---|---|---|---|
-| P1 (15,39) | 0.00 | 46.32 | C1 |
-| P2 (19,40) | √(16+1) = 4.12 | √(1681+100) = 42.20 | C1 |
-| P3 (60,50) | 46.32 | 0.00 | C2 |
-| P4 (64,45) | √(2401+36) = 49.37 | √(16+25) = 6.40 | C2 |
+| 1 (1.4, 0.2) | 0 | √(3.3²+1.2²) = 3.5114 | C1 |
+| 44 (1.6, 0.6) | √(0.2²+0.4²) = 0.4472 | √(3.1²+0.8²) = 3.2016 | C1 |
+| 51 (4.7, 1.4) | 3.5114 | 0 | C2 |
+| 78 (5.0, 1.7) | √(3.6²+1.5²) = 3.9000 | √(0.3²+0.3²) = 0.4243 | C2 |
 
-The new centroids are C1 = mean(P1, P2) = **(17.0, 39.5)** and
-C2 = mean(P3, P4) = **(62.0, 47.5)**. A second iteration would not change any
-assignment, so the algorithm has converged. The script prints these exact numbers.
+The new centroids are C1 = mean(flower 1, flower 44) = **(1.5, 0.4)** and
+C2 = mean(flower 51, flower 78) = **(4.85, 1.55)**. Recomputing the distances does not
+change any assignment, so the algorithm has converged. The script prints these
+exact numbers.
 
-**Choosing k (elbow method + silhouette), computed with Spark:**
+**Choosing k (elbow method + silhouette), computed with Spark on all 150 flowers:**
 
 | k | WSSSE | Silhouette |
 |---|---|---|
-| 2 | 22 543.17 | 0.6377 |
-| 3 | 11 767.33 | 0.7553 |
-| 4 | 7 515.21 | 0.6796 |
-| **5** | **405.20** | **0.9818** |
-| 6 | 361.87 | 0.8781 |
+| 2 | 152.348 | **0.8504** |
+| **3** | **78.851** | 0.7357 |
+| 4 | 57.256 | 0.6723 |
+| 5 | 52.945 | 0.6158 |
+| 6 | 39.354 | 0.5479 |
 
-WSSSE drops sharply up to k = 5 and then flattens: this is the "elbow". The
-silhouette score also peaks at k = 5, so **k = 5**.
+WSSSE roughly halves from k = 2 to k = 3 and then decreases much more slowly: the
+"elbow" is at k = 3. The silhouette is highest at k = 2, because *versicolor* and
+*virginica* overlap and form one well-separated blob next to *setosa*. The two
+criteria disagree, which is common on real data. Domain knowledge (three species)
+settles it, so **k = 3**.
 
-**Spark result (`KMeans(k=5, seed=1)`):** the centroids are (19.0, 37.0),
-(20.0, 81.0), (62.8, 50.0), (100.6, 88.2) and (100.4, 17.4). The cluster sizes are
-[5, 5, 5, 5, 5], WSSSE = 405.20 and silhouette = 0.9818. All five segments were
-recovered perfectly.
+**Spark result (`KMeans(k=3, seed=1)`, converged in 3 iterations):**
+
+| Cluster | Centroid (sepal L, sepal W, petal L, petal W) | setosa | versicolor | virginica |
+|---|---|---|---|---|
+| 0 | (5.902, 2.748, 4.394, 1.434) | 0 | **48** | 14 |
+| 1 | (5.006, 3.428, 1.462, 0.246) | **50** | 0 | 0 |
+| 2 | (6.850, 3.074, 5.742, 2.071) | 0 | 2 | **36** |
+
+WSSSE = 78.851 and silhouette = 0.7357. The **purity** is 134/150 = **0.8933**:
+setosa is found perfectly, and the 16 errors are versicolor/virginica flowers in the
+region where the two species overlap.
 
 **Strengths and weaknesses.** K-Means is simple, fast ($O(nkt)$) and scales well.
 However, you must choose $k$ in advance, and it assumes spherical clusters of
@@ -520,34 +629,37 @@ only hard assignments.
 The result is a binary **tree (dendrogram)** of clusters, so you can cut it at
 different levels. Each split only runs 2-means on a subset of the data, so it is
 often faster than K-Means for large $k$. It is also less dependent on random
-initialisation, and it tends to produce clusters of more even size.
+initialisation.
 
-**How the hierarchy unfolds on the example data.** The script prints the Spark
-result for k = 2, 3 and 4. Each split is an ordinary 2-means, like the hand
-computation in 3.3:
+**How the hierarchy unfolds on Iris** (centre = sepal L, sepal W, petal L, petal W):
 
 | k | Clusters (centre, size) |
 |---|---|
-| 2 | (19.5, 59.0) n=10 · (87.9, 51.9) n=15 |
-| 3 | (19.5, 59.0) n=10 · (81.6, 33.7) n=10 · (100.6, 88.2) n=5 |
-| 4 | (19.0, 37.0) n=5 · (20.0, 81.0) n=5 · (62.8, 50.0) n=5 · (100.5, 52.8) n=10 |
+| 2 | (5.01, 3.37, 1.56, 0.29) n=53 · (6.30, 2.89, 4.96, 1.70) n=97 |
+| 3 | (5.01, 3.37, 1.56, 0.29) n=53 · (5.95, 2.77, 4.45, 1.45) n=59 · (6.85, 3.07, 5.74, 2.07) n=38 |
 
-The first cut follows the direction of greatest spread, income: the 10 low-income
-customers versus the 15 mid- and high-income customers. The splits that follow
-separate the remaining segments. Spark divides clusters level by level, so a
-model with a smaller k is not always an exact prefix of the tree for a larger k.
-For example, the k = 3 and k = 4 models group the 15 richer customers differently.
+The first cut separates the small-petal flowers (setosa plus 3 others) from all the
+rest. The second cut splits the large group of 97 into a medium-petal and a
+large-petal cluster. Each cut is an ordinary 2-means like the hand computation in
+3.3.
 
-**Spark result (`BisectingKMeans(k=5, seed=1)`):** the centroids are (19.0, 37.0),
-(20.0, 81.0), (62.8, 50.0), (100.4, 17.4) and (100.6, 88.2). The cluster sizes are
-[5, 5, 5, 5, 5], SSE = 405.20 and silhouette = 0.9818. On well-separated data it
-finds the same partition as K-Means, but it does so through a hierarchy.
+**Spark result (`BisectingKMeans(k=3, seed=1)`):**
 
-**Strengths and weaknesses.** Bisecting K-Means gives a hierarchy and is
-deterministic given the splits. Bad early splits are never undone, because the
-splitting is greedy. Classic *agglomerative* (bottom-up) hierarchical clustering
-needs $O(n^2)$ memory and does not scale, which is why Spark offers the divisive
-version.
+| Cluster | setosa | versicolor | virginica |
+|---|---|---|---|
+| 0 | **50** | 3 | 0 |
+| 1 | 0 | **45** | 14 |
+| 2 | 0 | 2 | **36** |
+
+SSE = 84.204, silhouette = 0.7232 and purity = 131/150 = **0.8733**. This is
+slightly worse than K-Means (SSE 78.851). The first split put 3 versicolor flowers
+in the setosa branch, and **bisecting never undoes an earlier split**. That greedy
+behaviour is the method's main weakness.
+
+**Strengths and weaknesses.** Bisecting K-Means gives a hierarchy and needs fewer
+distance computations per step. Bad early splits are never corrected. Classic
+*agglomerative* (bottom-up) hierarchical clustering needs $O(n^2)$ memory and does
+not scale, which is why Spark offers the divisive version.
 
 ## 3.5 Algorithm 3 — Gaussian Mixture Model (probabilistic, soft clustering)
 
@@ -568,43 +680,71 @@ Unlike K-Means, every point gets a **probability of membership** in every cluste
 of different sizes and orientations. K-Means is the special case of a GMM with equal
 spherical covariances and hard assignments.
 
-**Spark result on the customer data (`GaussianMixture(k=5, seed=2)`):** the
-weights are [0.2, 0.2, 0.2, 0.2, 0.2], and the means are (62.8, 50.0),
-(100.6, 88.2), (19.0, 37.0), (100.4, 17.4) and (20.0, 81.0). The log-likelihood is
-−160.56 and the silhouette is 0.9818. Because these segments are far apart, every
-customer's membership probability is about 1.0.
+**Initialisation matters.** EM only reaches a *local* optimum, so the script fits 10
+random initialisations:
 
-**Where the soft assignment matters: overlapping clusters.** The script also fits
-a 2-component GMM to 22 overlapping customer ages (22–50):
-
-| | Mean | Variance | Weight |
+| Seeds | Log-likelihood | Cluster sizes | Note |
 |---|---|---|---|
-| Component 0 | 27.62 | 11.85 | 0.452 |
-| Component 1 | 42.17 | 22.01 | 0.548 |
+| 3, 4, 7 | −180.19 | 50 / 55 / 45 | the solution kept |
+| 10 | −189.50 | 53 / 47 / 50 | |
+| 1, 9 | −192.65 | 24 / 50 / 76 | |
+| 2 | −193.21 | 29 / 50 / 71 | |
+| 5, 8 | −194.64 | 13 / 50 / 87 | rejected: a component holds < 10% |
+| 6 | **−133.69** | 49 / **3** / 98 | rejected: a component holds < 10% |
 
-| Age | P(component 0) | P(component 1) |
-|---|---|---|
-| 25 | 0.999 | 0.001 |
-| 33 | **0.691** | **0.309** |
-| 35 | **0.266** | **0.734** |
-| 37 | 0.048 | 0.952 |
-| 47 | 0.000 | 1.000 |
+Seed 6 has by far the *highest* likelihood but is a **degenerate** solution. One
+Gaussian collapsed onto 3 flowers, and its nearly singular covariance makes the
+density, and so the likelihood, very large. This is a known failure mode of EM for
+GMMs. The script keeps the highest-likelihood fit in which every component holds at
+least 10% of the data.
 
-Ages 33 and 35 sit in the overlap. A GMM reports this uncertainty, for example 69%
-versus 31%, while K-Means would force a single hard label.
+**Spark result (`GaussianMixture(k=3, seed=7)`):**
 
-**Hand check of one E-step value (age 33):**
+| Component | Weight | Mean (sepal L, sepal W, petal L, petal W) | setosa | versicolor | virginica |
+|---|---|---|---|---|---|
+| 0 | 0.333 | (5.006, 3.428, 1.462, 0.246) | **50** | 0 | 0 |
+| 1 | 0.368 | (6.545, 2.949, 5.480, 1.985) | 0 | 5 | **50** |
+| 2 | 0.299 | (5.915, 2.778, 4.202, 1.297) | 0 | **45** | 0 |
 
-* $\pi_0\mathcal N(33\mid27.62, 11.85) = 0.452 \times \frac{1}{\sqrt{2\pi\cdot11.85}}e^{-(5.38)^2/(2\cdot11.85)} = 0.452\times0.1159\times0.2950 = 0.01545$
-* $\pi_1\mathcal N(33\mid42.17, 22.01) = 0.548\times0.0850\times e^{-(9.17)^2/44.02} = 0.548\times0.0850\times0.1480 = 0.00690$
-* $\gamma_0 = 0.01545/(0.01545+0.00690) = \mathbf{0.691}$, which matches Spark.
+The log-likelihood is −180.19 and the silhouette is 0.6503. The purity is
+145/150 = **0.9667**, the best of the three algorithms. Its full covariances fit the
+elongated, overlapping versicolor and virginica groups better than K-Means'
+spheres. The silhouette score is lower because silhouette itself assumes compact,
+round clusters.
 
-**A practical observation.** EM only finds a *local* optimum, so the result depends
-on the random initialisation. Trying seeds 1–20 on the customer data recovered the
-five segments perfectly for only seeds 2, 14 and 15. Several other seeds gave a
-*higher* log-likelihood but worse clusters, because a component collapsed onto very
-few points. In practice, you run several initialisations, or initialise from a
-K-Means solution, and compare them with BIC or AIC.
+**Soft memberships.** Nine flowers have a maximum membership probability below 0.95,
+and all of them lie in the versicolor/virginica overlap. For example:
+
+| Flower | Species | Petal L, W | P(comp 0) | P(comp 1) | P(comp 2) |
+|---|---|---|---|---|---|
+| 78 | versicolor | 5.0, 1.7 | 0.000 | **0.671** | 0.329 |
+| 134 | virginica | 5.1, 1.5 | 0.000 | **0.784** | 0.216 |
+| 85 | versicolor | 4.5, 1.5 | 0.000 | 0.153 | **0.847** |
+
+K-Means would give each of these one hard label. The GMM reports that the
+assignment is uncertain.
+
+**Old Faithful: a hand-checkable E-step.** The script fits a 2-component GMM to the
+272 eruption durations:
+
+| Component | Mean (min) | Variance | Weight |
+|---|---|---|---|
+| 0 ("short") | 2.0186 | 0.0555 | 0.3484 |
+| 1 ("long") | 4.2733 | 0.1910 | 0.6516 |
+
+For an eruption lasting $x = 2.8$ minutes:
+
+* $\pi_0\,\mathcal N(2.8\mid2.0186,0.0555) = 0.3484\times0.006927 = 0.002414$
+* $\pi_1\,\mathcal N(2.8\mid4.2733,0.1910) = 0.6516\times0.003110 = 0.002026$
+* $\gamma_0 = 0.002414/(0.002414+0.002026) = \mathbf{0.5436}$, which matches Spark.
+
+| Eruption (min) | 1.8 | 2.8 | 3.0 | 3.2 | 4.5 |
+|---|---|---|---|---|---|
+| P(short) | 1.0000 | **0.5436** | 0.0117 | 0.0001 | 0.0000 |
+| P(long) | 0.0000 | **0.4564** | 0.9883 | 0.9999 | 1.0000 |
+
+A 2.8-minute eruption is close to a coin flip between the two eruption types.
+Only 12 of the 272 eruptions fall between 2.5 and 3.5 minutes.
 
 ## 3.6 Comparison of the three algorithms
 
@@ -616,12 +756,10 @@ K-Means solution, and compare them with BIC or AIC.
 | Objective | Minimise WSSSE | Repeated 2-means splits | Maximise likelihood (EM) |
 | Output | k centroids | Tree of clusters + centroids | Weights, means, covariances |
 | Cost | Low | Low to medium | Higher (covariance per component) |
-| Sensitivity | Initialisation, outliers, scale | Early greedy splits | Initialisation, can collapse to a point |
-| Result on example (k=5) | Silhouette 0.9818 | Silhouette 0.9818 | Silhouette 0.9818 (seed 2) |
-
-The script ends with a table of each customer's assigned cluster under each
-algorithm. Apart from the arbitrary cluster numbering, all three algorithms produce
-the same five segments.
+| Sensitivity | Initialisation, outliers, scale | Early greedy splits | Initialisation; can collapse to a few points |
+| Iris (k=3): SSE / WSSSE | 78.85 | 84.20 | — |
+| Iris (k=3): silhouette | 0.7357 | 0.7232 | 0.6503 |
+| Iris (k=3): purity vs species | 0.8933 | 0.8733 | **0.9667** |
 
 \newpage
 
@@ -688,8 +826,9 @@ the trees in parallel.
 
 ## 4.3 Worked example A — "Play Tennis" (hand computation + Spark)
 
-The training data has 14 days with outlook, temperature and humidity, and the label
-*play* (9 Yes, 5 No). The task is to classify a new day: **Outlook = Sunny,
+The training data is the classic 14-day weather table of Quinlan (1986), as printed
+in Mitchell (1997, Table 3.2). It records outlook, temperature and humidity, and the
+label *play* (9 Yes, 5 No); the table's Wind column is omitted here. The task is to classify a new day: **Outlook = Sunny,
 Temp = Cool, Humidity = High**.
 
 ### Naïve Bayes by hand
@@ -726,99 +865,124 @@ differently. A 7-tree `RandomForestClassifier` on Spark voted
 **[No, No, Yes, Yes, No, No, No]**: 5 votes against 2 for **No**. The forest's
 probability is P(No) = 0.701, which agrees with Naïve Bayes.
 
-### SVM by hand on a tiny 2-D set
+### SVM on real data: Iris setosa vs versicolor
 
-The class −1 points are (1,1), (2,1) and (1,2). The class +1 points are (3,3),
-(4,3) and (3,4). By symmetry $w=(a,a)$. The closest points are (2,1) and (1,2) on
-the negative side ($x_1+x_2=3$) and (3,3) on the positive side ($x_1+x_2=6$), so
-they are the support vectors. Requiring $w\cdot x+b=-1$ at the negative support
-vectors and $+1$ at the positive one gives:
+The data is the 100 Iris flowers of the *setosa* (label 0) and *versicolor*
+(label 1) species, described by petal length and petal width. These two species do
+not overlap:
 
-* $3a+b=-1$ and $6a+b=+1$
-* so $a=2/3$ and $b=-3$
-* The boundary is $\tfrac23x_1+\tfrac23x_2-3=0$, that is $x_1+x_2=4.5$.
-* The margin is $2/\lVert w\rVert = 2/0.9428 = \mathbf{2.1213}$, which equals the
-  distance between the lines $x_1+x_2=3$ and $x_1+x_2=6$, $3/\sqrt2$.
+| Species | Petal length (cm) | Petal width (cm) |
+|---|---|---|
+| setosa | 1.0 – 1.9 | 0.1 – 0.6 |
+| versicolor | 3.0 – 5.1 | 1.0 – 1.8 |
 
-Spark's `LinearSVC` gives $w=(0.7958, 0.7958)$ and $b=-3.7749$:
+So a straight line can separate them, which is the setting where the SVM's
+maximum-margin idea is easiest to see.
 
-* The direction of $w$ is the same as the hand solution, and every point is
-  classified correctly.
-* The support vector (3,3) lies exactly on the margin, with $w\cdot x+b=+1.0000$.
-* The boundary sits slightly off centre ($x_1+x_2\approx4.74$).
+Spark `LinearSVC(regParam=0.001, standardization=False)` learned the hyperplane:
+$$0.8125\cdot\text{petal\_len} + 1.7249\cdot\text{petal\_wid} - 3.3350 = 0$$
+with margin width $2/\lVert w\rVert = 2/\sqrt{0.8125^2+1.7249^2} = 2/1.9067 = \mathbf{1.0489}$ cm.
 
-The offset arises because `LinearSVC` minimises a regularised hinge loss with a
-quasi-Newton optimiser (OWL-QN). That only approximates the exact quadratic program
-that a textbook SVM solves.
+**Hand check of the decision function** $f(x)=w\cdot x+b$:
 
-## 4.4 Worked example B — spam detection with all three classifiers on Spark
+* Flower 1 (setosa, petal 1.4, 0.2): $0.8125(1.4)+1.7249(0.2)-3.3350 = 1.1375+0.3450-3.3350 = \mathbf{-1.8525} < 0$, so **setosa** ✓
+* Flower 51 (versicolor, petal 4.7, 1.4): $0.8125(4.7)+1.7249(1.4)-3.3350 = 3.8188+2.4149-3.3350 = \mathbf{+2.8988} > 0$, so **versicolor** ✓
 
-**Data.** 400 synthetic emails, 200 spam and 200 ham, generated with a fixed random
-seed. Each email has three features:
+**Support vectors.** The flowers closest to the boundary are flower 44 (setosa,
+1.6, 0.6) with $f(x) = -1.0000$ and flower 99 (versicolor, 3.0, 1.1) with
+$f(x) = +1.0000$. They lie exactly on the two margin lines $w\cdot x+b=\pm1$, so they
+are the support vectors that fix the boundary. Moving any flower farther from the
+boundary would not change the model. Training accuracy is 100%.
 
-* the number of links
-* the count of "spammy" words (free, win, …)
-* the fraction of the text in CAPITALS
+Spark's `LinearSVC` minimises the regularised hinge loss
+$\frac1n\sum\max(0,1-y_i(w\cdot x_i+b))+\frac{\lambda}{2}\lVert w\rVert^2$ with the OWL-QN
+quasi-Newton method. This is the soft-margin SVM. With a small $\lambda$ it
+approaches the hard-margin solution, but it does not solve the exact quadratic
+program that a textbook SVM uses.
 
-| class | mean links | mean spam words | mean caps ratio |
-|---|---|---|---|
-| ham (0) | 1.90 | 1.08 | 0.104 |
-| spam (1) | 6.01 | 3.98 | 0.358 |
+## 4.4 Worked example B — real spam e-mail, all three classifiers on Spark
 
-The data is split 70/30 (`randomSplit(seed=42)`) into 274 training rows and 126 test
-rows. All three models are Spark ML `Pipeline`s:
+**Data.** `spam7` contains **4,601 real e-mails** from the UCI *Spambase*
+collection, gathered at Hewlett-Packard Labs (Hopkins, Reeber, Forman &
+Suermondt, 1999). This copy, from the R package `DAAG`, keeps six of the original
+57 features:
+
+| Feature | Meaning |
+|---|---|
+| `crl_tot` | total length of all runs of CAPITAL letters |
+| `dollar` | % of characters that are "\$" |
+| `bang` | % of characters that are "!" |
+| `money` | % of words that are "money" |
+| `n000` | % of words that are "000" |
+| `make` | % of words that are "make" |
+
+There are 2,788 ham and 1,813 spam e-mails (39.4% spam). The class means show the
+signal:
+
+| class | crl_tot | dollar | bang | money | n000 | make |
+|---|---|---|---|---|---|---|
+| ham (0) | 161.5 | 0.012 | 0.110 | 0.017 | 0.007 | 0.073 |
+| spam (1) | 470.6 | 0.174 | 0.514 | 0.213 | 0.247 | 0.152 |
+
+The data is split 70/30 (`randomSplit(seed=42)`) into 3,288 training and 1,313 test
+e-mails. All models are Spark ML `Pipeline`s:
 
 ```python
-NaiveBayes(modelType="gaussian")
+NaiveBayes(modelType="gaussian")                                  # raw features
+NaiveBayes(modelType="gaussian") on log(1 + x) features           # see below
 Pipeline([StandardScaler(withMean=True, withStd=True), LinearSVC(regParam=0.01)])
-RandomForestClassifier(numTrees=100, maxDepth=5, seed=42)
+RandomForestClassifier(numTrees=100, maxDepth=8, seed=42)
 ```
 
 **Test-set results (from `outputs/q4_classification.txt`):**
 
 | Model | Accuracy | F1 | Precision (spam) | Recall (spam) | ROC-AUC |
 |---|---|---|---|---|---|
-| Naïve Bayes (Gaussian) | **0.9762** | **0.9762** | 0.9683 | **0.9839** | 0.9798 |
-| Linear SVM | 0.9683 | 0.9683 | 0.9677 | 0.9677 | **0.9972** |
-| Random Forest (100 trees) | 0.9444 | 0.9444 | 0.9104 | **0.9839** | 0.9961 |
+| Naïve Bayes (Gaussian, raw features) | 0.7685 | 0.7482 | **0.9170** | 0.4748 | 0.8564 |
+| Naïve Bayes (Gaussian, log(1+x) features) | 0.8180 | 0.8104 | 0.8957 | 0.6262 | 0.8947 |
+| Linear SVM | 0.8363 | 0.8307 | 0.9040 | 0.6692 | 0.9058 |
+| **Random Forest (100 trees)** | **0.8842** | **0.8832** | 0.8948 | **0.8112** | **0.9248** |
 
-**Confusion matrices (rows = actual, columns = predicted):**
+ROC-AUC is computed from each model's spam *score*: the class-1 probability for NB
+and RF, and the signed distance $w\cdot x+b$ for the SVM, which has no probability
+output.
 
-| | NB: ham | NB: spam | SVM: ham | SVM: spam | RF: ham | RF: spam |
-|---|---|---|---|---|---|---|
-| actual ham (64) | 62 | 2 | 62 | 2 | 58 | 6 |
-| actual spam (62) | 1 | 61 | 2 | 60 | 1 | 61 |
+**Confusion matrices (rows = actual, columns = predicted), 778 ham and 535 spam in the test set:**
+
+| | NB raw: ham | NB raw: spam | NB log: ham | NB log: spam | SVM: ham | SVM: spam | RF: ham | RF: spam |
+|---|---|---|---|---|---|---|---|---|
+| actual ham | 755 | 23 | 739 | 39 | 740 | 38 | 727 | 51 |
+| actual spam | 281 | 254 | 200 | 335 | 177 | 358 | 101 | 434 |
 
 **What each fitted model learned:**
 
-* **Naïve Bayes** stores, per class, a log-prior (−0.7005 for ham and −0.6859 for
-  spam) and a mean and variance for each feature. For example, the mean number of
-  links is 2.11 for ham and 6.10 for spam. A new email is scored by multiplying the
-  three Gaussian likelihoods with the prior.
-* **SVM** learned one hyperplane on the standardised features:
-  $w=(0.886, 1.178, 1.118)$ and $b=0.308$. The sign of $w\cdot x+b$ gives the
-  class, and its magnitude is a confidence. That is why the SVM has the best AUC.
-* **Random Forest** reports feature importances: caps ratio 0.563, spam words
-  0.259, links 0.178. This tells us *which* signals matter most, which the other
-  two models do not show as directly.
+* **Naïve Bayes** stores class priors (0.611 ham, 0.389 spam) and, for every class
+  and feature, a mean and variance. For example, the mean `crl_tot` is 163.9 for ham
+  and 467.1 for spam. Gaussian NB assumes each feature is *normally* distributed
+  within a class, but these counts and percentages are mostly 0 with a long right
+  tail. The badly fitting Gaussians make NB cautious: it misses 281 of 535 spams
+  (recall 0.47). Taking $\log(1+x)$ makes the features less skewed and raises
+  accuracy from 0.769 to 0.818. **Checking the model's assumptions matters.**
+* **SVM** learned one hyperplane on the standardised features, with weights
+  dollar 1.181, money 0.990, bang 0.935, n000 0.820, crl_tot 0.007, make −0.022 and
+  $b = 0.098$. A linear boundary cannot capture thresholds such as "any `$` at all
+  is suspicious", which limits its recall.
+* **Random Forest** fits non-linear, axis-aligned rules and handles the skewed
+  features without any transformation. Its feature importances are bang 0.375,
+  dollar 0.318, crl_tot 0.123, money 0.116, n000 0.052, make 0.016: "!" and "\$"
+  are the strongest spam signals. It has the best accuracy, recall and AUC, and its
+  errors are the most balanced (51 false alarms, 101 missed spams).
 
-**Predictions for three new emails:**
+**Where the models disagree.** The three classifiers (NB on raw features, SVM and RF)
+disagree on 270 of the 1,313 test e-mails. The first three that the script prints
+are spams with weak signals, such as `crl_tot = 112, dollar = 0.054, bang = 0.164`.
+NB and SVM call them ham and only the forest catches them. A tree can learn that
+small but non-zero values of `$` and `!` already indicate spam.
 
-| links | spam words | caps | NB | SVM | RF |
-|---|---|---|---|---|---|
-| 1 | 0 | 0.05 | ham | ham | ham |
-| 4 | 2.5 | 0.22 | spam | spam | **ham** |
-| 8 | 6 | 0.50 | spam | spam | spam |
-
-All three models agree on the clear cases. The borderline email splits them: NB and
-SVM use smooth boundaries, while the forest uses axis-aligned thresholds. With
-`maxDepth=5`, the forest's thresholds put 0.22 caps and 4 links on the ham side.
-
-**Interpretation.** On this nearly Gaussian, nearly linearly separable data, the
-simple models (NB and the linear SVM) are as good as or better than the forest. Their
-assumptions match how the data was generated. Random Forest becomes the stronger
-choice when boundaries are non-linear, when features interact, or when features are
-mixed categorical and numeric.
+**Interpretation.** On this real data, the features are skewed, the class boundary
+is non-linear, and the features interact, so the ensemble wins. NB has the highest
+precision (few false alarms) and is the cheapest to train, which matters for a
+spam filter that must not lose real mail. The SVM sits in between.
 
 ## 4.5 Distinguishing Naïve Bayes, SVM and Random Forest
 
@@ -836,12 +1000,14 @@ mixed categorical and numeric.
 | Interpretability | High (inspect probabilities) | Medium (weights for linear) | Medium (feature importances, but many trees) |
 | Best for | Text and spam, real-time, very high-dimensional sparse data | High-dimensional data with a clear margin (text, bioinformatics) | Tabular data with mixed types and non-linear effects |
 | Spark MLlib class | `NaiveBayes` (multinomial, Bernoulli, Gaussian, complement) | `LinearSVC` (binary, linear) | `RandomForestClassifier` |
-| Result on Play Tennis query | No (0.684) | — | No (5 of 7 trees) |
-| Spam test accuracy | 0.976 | 0.968 | 0.944 |
+| Result on Play Tennis query | No (P = 0.684) | — | No (5 of 7 trees) |
+| Spam (spam7) test accuracy / AUC | 0.769 / 0.856 (0.818 / 0.895 with log features) | 0.836 / 0.906 | **0.884 / 0.925** |
 
 \newpage
 
 # References
+
+**Software and documentation**
 
 1. Apache Spark. *MLlib: Main Guide — Basic Statistics (Correlation, Hypothesis
    testing, ChiSquareTest), Clustering, Classification and Regression, Feature
@@ -849,29 +1015,62 @@ mixed categorical and numeric.
    https://spark.apache.org/docs/latest/ml-guide.html
 2. Apache Spark. *PySpark API Reference — pyspark.ml*.
    https://spark.apache.org/docs/latest/api/python/reference/pyspark.ml.html
-3. Leskovec, J., Rajaraman, A., & Ullman, J. D. (2020). *Mining of Massive
+3. Virtanen, P. et al. (2020). SciPy 1.0: Fundamental algorithms for scientific
+   computing in Python. *Nature Methods*, 17, 261–272. (Used to cross-check
+   p-values.)
+4. Arel-Bundock, V. *Rdatasets: A collection of datasets originally distributed in
+   R packages*. https://vincentarelbundock.github.io/Rdatasets/ (Source of the CSV
+   copies in `data/`.)
+
+**Textbooks and methods**
+
+5. Leskovec, J., Rajaraman, A., & Ullman, J. D. (2020). *Mining of Massive
    Datasets* (3rd ed.), Ch. 3 (Finding Similar Items, Jaccard, MinHash, LSH) and
    Ch. 7 (Clustering). Cambridge University Press. http://www.mmds.org
-4. Han, J., Kamber, M., & Pei, J. (2012). *Data Mining: Concepts and Techniques*
+6. Han, J., Kamber, M., & Pei, J. (2012). *Data Mining: Concepts and Techniques*
    (3rd ed.), Ch. 2 (Measuring Data Similarity and Dissimilarity), Ch. 8–9
    (Classification), Ch. 10 (Cluster Analysis). Morgan Kaufmann.
-5. Tan, P.-N., Steinbach, M., Karpatne, A., & Kumar, V. (2018). *Introduction to
-   Data Mining* (2nd ed.). Pearson. Bisecting K-Means: §7.2.3.
-6. Montgomery, D. C., & Runger, G. C. (2014). *Applied Statistics and Probability
+7. Tan, P.-N., Steinbach, M., Karpatne, A., & Kumar, V. (2018). *Introduction to
+   Data Mining* (2nd ed.). Pearson. (Bisecting K-Means.)
+8. Montgomery, D. C., & Runger, G. C. (2014). *Applied Statistics and Probability
    for Engineers* (6th ed.), Ch. 9–10 (Tests of Hypotheses, χ², t, F) and Ch. 13
    (ANOVA). Wiley.
-7. Mitchell, T. M. (1997). *Machine Learning*, Ch. 6 (Bayesian Learning; the "Play
-   Tennis" example). McGraw-Hill.
-8. Cortes, C., & Vapnik, V. (1995). Support-vector networks. *Machine Learning*,
-   20(3), 273–297.
-9. Breiman, L. (2001). Random forests. *Machine Learning*, 45(1), 5–32.
-10. Dempster, A. P., Laird, N. M., & Rubin, D. B. (1977). Maximum likelihood from
+9. Mitchell, T. M. (1997). *Machine Learning*, Table 3.2 and Ch. 6 (Bayesian
+   Learning). McGraw-Hill.
+10. Cortes, C., & Vapnik, V. (1995). Support-vector networks. *Machine Learning*,
+    20(3), 273–297.
+11. Breiman, L. (2001). Random forests. *Machine Learning*, 45(1), 5–32.
+12. Dempster, A. P., Laird, N. M., & Rubin, D. B. (1977). Maximum likelihood from
     incomplete data via the EM algorithm. *Journal of the Royal Statistical
     Society B*, 39(1), 1–38.
-11. Virtanen, P. et al. (2020). SciPy 1.0: Fundamental algorithms for scientific
-    computing in Python. *Nature Methods*, 17, 261–272. (Used to cross-check
-    p-values.)
 
-*All example datasets in this report are small illustrative datasets constructed
-for this assignment. The "Play Tennis" layout follows Mitchell (1997), with the
-Wind attribute omitted.*
+**Datasets**
+
+13. Harper, F. M., & Konstan, J. A. (2015). The MovieLens datasets: History and
+    context. *ACM Transactions on Interactive Intelligent Systems*, 5(4), Article 19.
+    (MovieLens "latest-small" ratings, as distributed in the R package `dslabs`,
+    Irizarry & Gill.)
+14. Bickel, P. J., Hammel, E. A., & O'Connell, J. W. (1975). Sex bias in graduate
+    admissions: Data from Berkeley. *Science*, 187(4175), 398–404.
+    (`UCBAdmissions`)
+15. Student [W. S. Gosset] (1908). The probable error of a mean. *Biometrika*,
+    6(1), 1–25; data from Cushny, A. R., & Peebles, A. R. (1905). The action of
+    optical isomers II: Hyoscines. *Journal of Physiology*, 32, 501–510. (`sleep`)
+16. Crampton, E. W. (1947). The growth of the odontoblasts of the incisor tooth as a
+    criterion of the vitamin C intake of the guinea pig. *Journal of Nutrition*,
+    33(5), 491–504. (`ToothGrowth`)
+17. Dobson, A. J. (1983). *An Introduction to Statistical Modelling*. Chapman and
+    Hall. (`PlantGrowth`)
+18. Anderson, E. (1935). The irises of the Gaspé Peninsula. *Bulletin of the
+    American Iris Society*, 59, 2–5; Fisher, R. A. (1936). The use of multiple
+    measurements in taxonomic problems. *Annals of Eugenics*, 7(2), 179–188.
+    (`iris`)
+19. Härdle, W. (1991). *Smoothing Techniques with Implementation in S*. Springer;
+    Azzalini, A., & Bowman, A. W. (1990). A look at some data on the Old Faithful
+    geyser. *Applied Statistics*, 39(3), 357–365. (`faithful`)
+20. Hopkins, M., Reeber, E., Forman, G., & Suermondt, J. (1999). *Spambase* [Data
+    set]. UCI Machine Learning Repository. https://doi.org/10.24432/C53G6X; subset
+    `spam7` from Maindonald, J. H., & Braun, W. J., R package `DAAG`.
+21. Quinlan, J. R. (1986). Induction of decision trees. *Machine Learning*, 1,
+    81–106. (Play Tennis data, as printed in Mitchell (1997), Table 3.2; the Wind
+    attribute is omitted here.)

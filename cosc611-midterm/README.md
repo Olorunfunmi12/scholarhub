@@ -1,8 +1,9 @@
 # COSC 611 Big Data Analytics — Midterm Take-Home
 
-* `COSC611_Midterm_Report.md` / `.docx`: the written answers to Q1–Q4
+* `COSC611_Midterm_Report.md` / `.docx` / `.pdf`: the written answers to Q1–Q4
 * `code/`: the PySpark programs, one per question (submit these with the report)
 * `outputs/`: the console output of each program, quoted in the report
+* `data/`: the real datasets used (see `data/SOURCES.md` for their origins)
 
 ## Running the code
 
@@ -18,5 +19,6 @@ python code/q3_clustering.py        > outputs/q3_clustering.txt
 python code/q4_classification.py    > outputs/q4_classification.txt
 ```
 
+Run these commands from this folder so the `outputs/` paths resolve. The scripts locate `data/` themselves.
 You can also run each one with `spark-submit code/<file>.py`. Every script uses
 `local[*]` mode and fixed random seeds, so the outputs are reproducible.

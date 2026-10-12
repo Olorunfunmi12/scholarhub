@@ -36,63 +36,83 @@ Random Forest building block - Gini impurity of each candidate root split:
   votes of the 7 trees for {'outlook': 'Sunny', 'temp': 'Cool', 'humidity': 'High'}: ['No', 'No', 'Yes', 'Yes', 'No', 'No', 'No']
   forest probability: P(Yes)=0.299, P(No)=0.701 -> No
 
-SVM on a tiny 2-D example:
-+---+---+-----+---------+
-| x1| x2|label| features|
-+---+---+-----+---------+
-|1.0|1.0|  0.0|[1.0,1.0]|
-|2.0|1.0|  0.0|[2.0,1.0]|
-|1.0|2.0|  0.0|[1.0,2.0]|
-|3.0|3.0|  1.0|[3.0,3.0]|
-|4.0|3.0|  1.0|[4.0,3.0]|
-|3.0|4.0|  1.0|[3.0,4.0]|
-+---+---+-----+---------+
+Linear SVM on iris: setosa (label 0) vs versicolor (label 1), petal features
++----------+--------------+--------------+--------------+--------------+
+|   Species|min(petal_len)|max(petal_len)|min(petal_wid)|max(petal_wid)|
++----------+--------------+--------------+--------------+--------------+
+|    setosa|           1.0|           1.9|           0.1|           0.6|
+|versicolor|           3.0|           5.1|           1.0|           1.8|
++----------+--------------+--------------+--------------+--------------+
 
-  Spark LinearSVC: w = (0.7958, 0.7958), b = -3.7749, margin 2/||w|| = 1.7771
-  hand solution  : w = (0.6667, 0.6667), b = -3.0000, margin = 2.1213
-  (LinearSVC minimises regularised hinge loss with OWL-QN, an approximation of
-   the exact max-margin QP: both lines separate the classes, same direction w)
-    point (1,1) label 0: w.x + b = -2.1833
-    point (2,1) label 0: w.x + b = -1.3875
-    point (1,2) label 0: w.x + b = -1.3875
-    point (3,3) label 1: w.x + b = +1.0000
-    point (4,3) label 1: w.x + b = +1.7958
-    point (3,4) label 1: w.x + b = +1.7958
+  Spark LinearSVC hyperplane: 0.8125*petal_len + 1.7249*petal_wid + (-3.3350) = 0
+  margin width 2/||w|| = 1.0489 cm
+  the flowers closest to the boundary (smallest |w.x + b|, i.e. the support vectors):
++---+----------+---------+---------+------+----------+
+| id|   Species|petal_len|petal_wid| w.x+b|prediction|
++---+----------+---------+---------+------+----------+
+| 44|    setosa|      1.6|      0.6|  -1.0|       0.0|
+| 99|versicolor|      3.0|      1.1|   1.0|       1.0|
+| 58|versicolor|      3.3|      1.0|1.0713|       1.0|
+| 94|versicolor|      3.3|      1.0|1.0713|       1.0|
++---+----------+---------+---------+------+----------+
+only showing top 4 rows
+  hand check flower 1 (setosa): 0.8125*1.4 + 1.7249*0.2 + (-3.3350) = -1.8525 -> class setosa
+  hand check flower 51 (versicolor): 0.8125*4.7 + 1.7249*1.4 + (-3.3350) = 2.8988 -> class versicolor
+  training accuracy = 1.0000 (the two species are linearly separable)
 
 ========================================================================
-PART B: Spam detection - Naive Bayes vs SVM vs Random Forest
+PART B: Spam detection (spam7) - Naive Bayes vs SVM vs Random Forest
 ========================================================================
-Sample of the data (400 emails, 200 spam / 200 ham):
-+------------------+------------------+-------------------+-----+
-|             links|        spam_words|         caps_ratio|label|
-+------------------+------------------+-------------------+-----+
-|               0.0| 0.292959932272874|                0.0|  0.0|
-|               0.0|0.8490910917639043|0.11929723427378199|  0.0|
-|0.3120599240734734|1.2750099617095512|                0.0|  0.0|
-|0.6388580180789976|1.9330122049532217|0.22600220279061015|  0.0|
-| 2.752897267458412| 1.564601331594091| 0.2018579866100353|  0.0|
-+------------------+------------------+-------------------+-----+
+features: crl_tot = total length of runs of CAPITAL letters; dollar, bang, money,
+n000, make = % of characters that are '$' / '!' and % of words 'money' / '000' / 'make'
++-------+------+-----+-----+----+----+-----+-----+
+|crl_tot|dollar| bang|money|n000|make|yesno|label|
++-------+------+-----+-----+----+----+-----+-----+
+|    278|   0.0|0.778|  0.0| 0.0| 0.0|    y|  1.0|
+|   1028|  0.18|0.372| 0.43|0.43|0.21|    y|  1.0|
+|   2259| 0.184|0.276| 0.06|1.16|0.06|    y|  1.0|
+|    191|   0.0|0.137|  0.0| 0.0| 0.0|    y|  1.0|
+|    191|   0.0|0.135|  0.0| 0.0| 0.0|    y|  1.0|
++-------+------+-----+-----+----+----+-----+-----+
 only showing top 5 rows
-+-----+----------+---------------+---------------+
-|label|mean_links|mean_spam_words|mean_caps_ratio|
-+-----+----------+---------------+---------------+
-|  0.0|     1.904|          1.077|          0.104|
-|  1.0|     6.009|          3.981|          0.358|
-+-----+----------+---------------+---------------+
+4601 e-mails; class balance:
++-----+-----+
+|label|count|
++-----+-----+
+|  0.0| 2788|
+|  1.0| 1813|
++-----+-----+
 
-train rows = 274, test rows = 126
++-----+-------+------+-----+-----+-----+-----+
+|label|crl_tot|dollar| bang|money| n000| make|
++-----+-------+------+-----+-----+-----+-----+
+|  0.0|161.471| 0.012| 0.11|0.017|0.007|0.073|
+|  1.0|470.619| 0.174|0.514|0.213|0.247|0.152|
++-----+-------+------+-----+-----+-----+-----+
+
+train rows = 3288, test rows = 1313
 
 Model                         Accuracy      F1    Prec  Recall     AUC
-Naive Bayes (Gaussian)          0.9762  0.9762  0.9683  0.9839  0.9798
-Linear SVM (LinearSVC)          0.9683  0.9683  0.9677  0.9677  0.9972
-Random Forest (100 trees)       0.9444  0.9444  0.9104  0.9839  0.9961
+Naive Bayes (Gaussian)          0.7685  0.7482  0.9170  0.4748  0.8564
+Naive Bayes (log1p feats)       0.8180  0.8104  0.8957  0.6262  0.8947
+Linear SVM (LinearSVC)          0.8363  0.8307  0.9040  0.6692  0.9058
+Random Forest (100 trees)       0.8842  0.8832  0.8948  0.8112  0.9248
 
 Confusion matrix - Naive Bayes (Gaussian) (rows = actual, cols = predicted):
 +-----+---+---+
 |label|0.0|1.0|
 +-----+---+---+
-|  0.0| 62|  2|
-|  1.0|  1| 61|
+|  0.0|755| 23|
+|  1.0|281|254|
++-----+---+---+
+
+
+Confusion matrix - Naive Bayes (log1p feats) (rows = actual, cols = predicted):
++-----+---+---+
+|label|0.0|1.0|
++-----+---+---+
+|  0.0|739| 39|
+|  1.0|200|335|
 +-----+---+---+
 
 
@@ -100,8 +120,8 @@ Confusion matrix - Linear SVM (LinearSVC) (rows = actual, cols = predicted):
 +-----+---+---+
 |label|0.0|1.0|
 +-----+---+---+
-|  0.0| 62|  2|
-|  1.0|  2| 60|
+|  0.0|740| 38|
+|  1.0|177|358|
 +-----+---+---+
 
 
@@ -109,28 +129,30 @@ Confusion matrix - Random Forest (100 trees) (rows = actual, cols = predicted):
 +-----+---+---+
 |label|0.0|1.0|
 +-----+---+---+
-|  0.0| 58|  6|
-|  1.0|  1| 61|
+|  0.0|727| 51|
+|  1.0|101|434|
 +-----+---+---+
 
-Naive Bayes - class log-priors: [-0.7005, -0.6859]
-Naive Bayes - per-class feature means (theta):
-DenseMatrix([[2.10624068, 0.96607314, 0.09839127],
-             [6.09793966, 3.88421603, 0.36123265]])
-Naive Bayes - per-class feature variances (sigma):
-DenseMatrix([[2.11088319, 0.68605226, 0.00455871],
-             [3.16278343, 2.04141174, 0.01259169]])
+Naive Bayes - class priors: [0.6113, 0.3887]
+Naive Bayes - per-class feature means (rows = ham, spam; cols = ['crl_tot', 'dollar', 'bang', 'money', 'n000', 'make'] ):
+DenseMatrix([[1.63922388e+02, 1.22149254e-02, 1.12777114e-01, 1.40497512e-02,
+              7.20895522e-03, 7.37860697e-02],
+             [4.67097809e+02, 1.71738654e-01, 5.09483568e-01, 2.07730829e-01,
+              2.34679186e-01, 1.46948357e-01]])
 
-SVM hyperplane on standardised features: w = [0.8859, 1.1782, 1.1182]  b = 0.3079
+SVM hyperplane on standardised features: {'crl_tot': 0.007, 'dollar': 1.181, 'bang': 0.9348, 'money': 0.9896, 'n000': 0.8197, 'make': -0.0222}  b = 0.098
 
-Random Forest feature importances: {'links': 0.1775, 'spam_words': 0.2591, 'caps_ratio': 0.5634}
+Random Forest feature importances: {'crl_tot': 0.1227, 'dollar': 0.3183, 'bang': 0.3745, 'money': 0.1163, 'n000': 0.0521, 'make': 0.0161}
 
-Predictions for three new emails (1 = spam):
-+-----+----------+----------+-----------+----------+-------------+
-|links|spam_words|caps_ratio|Naive_Bayes|Linear_SVM|Random_Forest|
-+-----+----------+----------+-----------+----------+-------------+
-|  1.0|       0.0|      0.05|        0.0|       0.0|          0.0|
-|  4.0|       2.5|      0.22|        1.0|       1.0|          0.0|
-|  8.0|       6.0|       0.5|        1.0|       1.0|          1.0|
-+-----+----------+----------+-----------+----------+-------------+
+Predictions for the first 3 test e-mails that the models disagree on, and 2 they agree on:
++-------+------+-----+-----+----+----+-----+-----------+----------+-------------+
+|crl_tot|dollar| bang|money|n000|make|label|Naive_Bayes|Linear_SVM|Random_Forest|
++-------+------+-----+-----+----+----+-----+-----------+----------+-------------+
+|    112| 0.054|0.164|  0.0| 0.0| 0.0|  1.0|        0.0|       0.0|          1.0|
+|    261|   0.0|0.786|  0.0| 0.0| 0.0|  1.0|        0.0|       0.0|          1.0|
+|    107|   0.0|0.428|  0.0| 0.0| 0.0|  1.0|        0.0|       0.0|          1.0|
+|    749| 0.081|0.244|  0.0|0.19|0.06|  1.0|        1.0|       1.0|          1.0|
+|     21|   0.0|0.462|  0.0| 0.0| 0.0|  1.0|        0.0|       0.0|          0.0|
++-------+------+-----+-----+----+----+-----+-----------+----------+-------------+
 
+models disagree on 270 of 1313 test e-mails

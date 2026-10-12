@@ -1,116 +1,132 @@
-=== Input data: customers (income k$, spending score) ===
-+---+------+--------+------------+
-|id |income|spending|features    |
-+---+------+--------+------------+
-|1  |15    |39      |[15.0,39.0] |
-|2  |17    |35      |[17.0,35.0] |
-|3  |19    |40      |[19.0,40.0] |
-|4  |21    |33      |[21.0,33.0] |
-|5  |23    |38      |[23.0,38.0] |
-|6  |16    |81      |[16.0,81.0] |
-|7  |18    |77      |[18.0,77.0] |
-|8  |20    |85      |[20.0,85.0] |
-|9  |22    |79      |[22.0,79.0] |
-|10 |24    |83      |[24.0,83.0] |
-|11 |60    |50      |[60.0,50.0] |
-|12 |62    |55      |[62.0,55.0] |
-|13 |63    |48      |[63.0,48.0] |
-|14 |65    |52      |[65.0,52.0] |
-|15 |64    |45      |[64.0,45.0] |
-|16 |100   |90      |[100.0,90.0]|
-|17 |103   |85      |[103.0,85.0]|
-|18 |98    |88      |[98.0,88.0] |
-|19 |105   |92      |[105.0,92.0]|
-|20 |97    |86      |[97.0,86.0] |
-+---+------+--------+------------+
-only showing top 20 rows
-=== Hand-traced K-Means (k=2) on points P1..P4, first iteration ===
-  P1(15, 39): d(C1)=0.00  d(C2)=46.32  -> C1
-  P2(19, 40): d(C1)=4.12  d(C2)=42.20  -> C1
-  P3(60, 50): d(C1)=46.32  d(C2)=0.00  -> C2
-  P4(64, 45): d(C1)=49.37  d(C2)=6.40  -> C2
-  new C1 = mean of [(15, 39), (19, 40)] = (17.0, 39.5)
-  new C2 = mean of [(60, 50), (64, 45)] = (62.0, 47.5)
+=== Iris data: 150 flowers, 4 features (species kept aside for evaluation) ===
++---+------------+-----------+------------+-----------+-------+
+| id|Sepal_Length|Sepal_Width|Petal_Length|Petal_Width|Species|
++---+------------+-----------+------------+-----------+-------+
+|  1|         5.1|        3.5|         1.4|        0.2| setosa|
+|  2|         4.9|        3.0|         1.4|        0.2| setosa|
+|  3|         4.7|        3.2|         1.3|        0.2| setosa|
+|  4|         4.6|        3.1|         1.5|        0.2| setosa|
+|  5|         5.0|        3.6|         1.4|        0.2| setosa|
++---+------------+-----------+------------+-----------+-------+
+only showing top 5 rows
++----------+------------+-----------+------------+-----------+
+|   Species|Sepal_Length|Sepal_Width|Petal_Length|Petal_Width|
++----------+------------+-----------+------------+-----------+
+|    setosa|       5.006|      3.428|       1.462|      0.246|
+|versicolor|       5.936|       2.77|        4.26|      1.326|
+| virginica|       6.588|      2.974|       5.552|      2.026|
++----------+------------+-----------+------------+-----------+
 
-=== Choosing k (elbow + silhouette) ===
-  k=2: WSSSE =   22543.17   silhouette = 0.6377
-  k=3: WSSSE =   11767.33   silhouette = 0.7553
-  k=4: WSSSE =    7515.21   silhouette = 0.6796
-  k=5: WSSSE =     405.20   silhouette = 0.9818
-  k=6: WSSSE =     361.87   silhouette = 0.8781
+=== Hand-traced K-Means (k=2) on four iris flowers, petal length & width ===
+  flower1(1.4, 0.2): d(C1)=0.0000  d(C2)=3.5114  -> C1
+  flower44(1.6, 0.6): d(C1)=0.4472  d(C2)=3.2016  -> C1
+  flower51(4.7, 1.4): d(C1)=3.5114  d(C2)=0.0000  -> C2
+  flower78(5.0, 1.7): d(C1)=3.9000  d(C2)=0.4243  -> C2
+  new C1 = mean of [(1.4, 0.2), (1.6, 0.6)] = (1.5, 0.4)
+  new C2 = mean of [(4.7, 1.4), (5.0, 1.7)] = (4.85, 1.55)
 
-=== 1. K-Means (k=5) ===
-  centroid 0: income=19.00, spending=37.00
-  centroid 1: income=100.60, spending=88.20
-  centroid 2: income=100.40, spending=17.40
-  centroid 3: income=20.00, spending=81.00
-  centroid 4: income=62.80, spending=50.00
-  WSSSE = 405.20, silhouette = 0.9818, cluster sizes = [5, 5, 5, 5, 5]
+=== Choosing k for K-Means (elbow + silhouette) ===
+  k=2: WSSSE =  152.348   silhouette = 0.8504
+  k=3: WSSSE =   78.851   silhouette = 0.7357
+  k=4: WSSSE =   57.256   silhouette = 0.6723
+  k=5: WSSSE =   52.945   silhouette = 0.6158
+  k=6: WSSSE =   39.354   silhouette = 0.5479
 
-=== 2. Bisecting K-Means (k=5) ===
-  how the hierarchy unfolds (cluster centres and sizes for k = 2, 3, 4):
-    k=2: (19.5, 59.0) n=10, (87.9, 51.9) n=15
-    k=3: (19.5, 59.0) n=10, (81.6, 33.7) n=10, (100.6, 88.2) n=5
-    k=4: (19.0, 37.0) n=5, (20.0, 81.0) n=5, (62.8, 50.0) n=5, (100.5, 52.8) n=10
-  centroid 0: income=19.00, spending=37.00
-  centroid 1: income=20.00, spending=81.00
-  centroid 2: income=62.80, spending=50.00
-  centroid 3: income=100.40, spending=17.40
-  centroid 4: income=100.60, spending=88.20
-  SSE = 405.20, silhouette = 0.9818, cluster sizes = [5, 5, 5, 5, 5]
+=== 1. K-Means (k=3) ===
+  centroid 0: Sepal_Length=5.902, Sepal_Width=2.748, Petal_Length=4.394, Petal_Width=1.434
+  centroid 1: Sepal_Length=5.006, Sepal_Width=3.428, Petal_Length=1.462, Petal_Width=0.246
+  centroid 2: Sepal_Length=6.850, Sepal_Width=3.074, Petal_Length=5.742, Petal_Width=2.071
+  WSSSE = 78.851, silhouette = 0.7357, sizes = [62, 50, 38], iterations = 3
+  K-Means: clusters (rows) vs true species (columns)
++----------+------+----------+---------+
+|prediction|setosa|versicolor|virginica|
++----------+------+----------+---------+
+|         0|     0|        48|       14|
+|         1|    50|         0|        0|
+|         2|     0|         2|       36|
++----------+------+----------+---------+
 
-=== 3. Gaussian Mixture Model (k=5) ===
-  mixture weights: [0.2, 0.2, 0.2, 0.2, 0.2]
-  component 0: mean = [62.80, 50.00]
-  component 1: mean = [100.60, 88.20]
-  component 2: mean = [19.00, 37.00]
-  component 3: mean = [100.40, 17.40]
-  component 4: mean = [20.00, 81.00]
-  log-likelihood = -160.5575, silhouette = 0.9818, cluster sizes = [5, 5, 5, 5, 5]
-  soft membership probabilities (first 6 customers):
-    customer  1: 0.000, 0.000, 1.000, 0.000, 0.000
-    customer  2: 0.000, 0.000, 1.000, 0.000, 0.000
-    customer  3: 0.000, 0.000, 1.000, 0.000, 0.000
-    customer  4: 0.000, 0.000, 1.000, 0.000, 0.000
-    customer  5: 0.000, 0.000, 1.000, 0.000, 0.000
-    customer  6: 0.000, 0.000, 0.000, 0.000, 1.000
-  overlapping 1-D example (ages), GMM k=2:
-    component 0: mean = 27.62, variance = 11.85, weight = 0.452
-    component 1: mean = 42.17, variance = 22.01, weight = 0.548
-    age   25: P(component 0) = 0.999, P(component 1) = 0.001
-    age   33: P(component 0) = 0.691, P(component 1) = 0.309
-    age   35: P(component 0) = 0.266, P(component 1) = 0.734
-    age   37: P(component 0) = 0.048, P(component 1) = 0.952
-    age   47: P(component 0) = 0.000, P(component 1) = 1.000
+  purity = 0.8933 (134 of 150 flowers in their cluster's majority species)
+=== 2. Bisecting K-Means (k=3) ===
+  how the hierarchy unfolds (cluster centres, sizes):
+    k=2: (5.01, 3.37, 1.56, 0.29) n=53; (6.30, 2.89, 4.96, 1.70) n=97
+    k=3: (5.01, 3.37, 1.56, 0.29) n=53; (5.95, 2.77, 4.45, 1.45) n=59; (6.85, 3.07, 5.74, 2.07) n=38
+  centroid 0: Sepal_Length=5.006, Sepal_Width=3.370, Petal_Length=1.560, Petal_Width=0.291
+  centroid 1: Sepal_Length=5.947, Sepal_Width=2.766, Petal_Length=4.454, Petal_Width=1.454
+  centroid 2: Sepal_Length=6.850, Sepal_Width=3.074, Petal_Length=5.742, Petal_Width=2.071
+  SSE = 84.204, silhouette = 0.7232, sizes = [53, 59, 38]
+  Bisecting K-Means: clusters (rows) vs true species (columns)
++----------+------+----------+---------+
+|prediction|setosa|versicolor|virginica|
++----------+------+----------+---------+
+|         0|    50|         3|        0|
+|         1|     0|        45|       14|
+|         2|     0|         2|       36|
++----------+------+----------+---------+
 
-=== Cluster assignment by algorithm ===
-+---+------+--------+------+---------+---+
-|id |income|spending|kmeans|bisecting|gmm|
-+---+------+--------+------+---------+---+
-|1  |15    |39      |0     |0        |2  |
-|2  |17    |35      |0     |0        |2  |
-|3  |19    |40      |0     |0        |2  |
-|4  |21    |33      |0     |0        |2  |
-|5  |23    |38      |0     |0        |2  |
-|6  |16    |81      |3     |1        |4  |
-|7  |18    |77      |3     |1        |4  |
-|8  |20    |85      |3     |1        |4  |
-|9  |22    |79      |3     |1        |4  |
-|10 |24    |83      |3     |1        |4  |
-|11 |60    |50      |4     |2        |0  |
-|12 |62    |55      |4     |2        |0  |
-|13 |63    |48      |4     |2        |0  |
-|14 |65    |52      |4     |2        |0  |
-|15 |64    |45      |4     |2        |0  |
-|16 |100   |90      |1     |4        |1  |
-|17 |103   |85      |1     |4        |1  |
-|18 |98    |88      |1     |4        |1  |
-|19 |105   |92      |1     |4        |1  |
-|20 |97    |86      |1     |4        |1  |
-|21 |101   |15      |2     |3        |3  |
-|22 |99    |20      |2     |3        |3  |
-|23 |104   |12      |2     |3        |3  |
-|24 |96    |18      |2     |3        |3  |
-|25 |102   |22      |2     |3        |3  |
-+---+------+--------+------+---------+---+
+  purity = 0.8733 (131 of 150 flowers in their cluster's majority species)
+=== 3. Gaussian Mixture Model (k=3) ===
+  EM converges to a local optimum, so try several random initialisations:
+    seed  1: log-likelihood = -192.6542, sizes = [24, 50, 76]
+    seed  2: log-likelihood = -193.2135, sizes = [29, 50, 71]
+    seed  3: log-likelihood = -180.1855, sizes = [50, 55, 45]
+    seed  4: log-likelihood = -180.1855, sizes = [50, 55, 45]
+    seed  5: log-likelihood = -194.6366, sizes = [13, 50, 87]   <- rejected: a component holds < 10% of the data
+    seed  6: log-likelihood = -133.6875, sizes = [49, 3, 98]   <- rejected: a component holds < 10% of the data
+    seed  7: log-likelihood = -180.1855, sizes = [50, 55, 45]
+    seed  8: log-likelihood = -194.6366, sizes = [13, 50, 87]   <- rejected: a component holds < 10% of the data
+    seed  9: log-likelihood = -192.6542, sizes = [76, 50, 24]
+    seed 10: log-likelihood = -189.5026, sizes = [53, 47, 50]
+  keeping the highest-likelihood fit whose components each hold >= 10% (seed 7)
+  mixture weights: [0.3333, 0.3675, 0.2992]
+  component 0: mean = [5.006, 3.428, 1.462, 0.246]
+  component 1: mean = [6.545, 2.949, 5.480, 1.985]
+  component 2: mean = [5.915, 2.778, 4.202, 1.297]
+  log-likelihood = -180.1855, silhouette = 0.6503, sizes = [50, 55, 45]
+  Gaussian Mixture: clusters (rows) vs true species (columns)
++----------+------+----------+---------+
+|prediction|setosa|versicolor|virginica|
++----------+------+----------+---------+
+|         0|    50|         0|        0|
+|         1|     0|         5|       50|
+|         2|     0|        45|        0|
++----------+------+----------+---------+
 
+  purity = 0.9667 (145 of 150 flowers in their cluster's majority species)
+  flowers with the most uncertain membership (max probability < 0.95):
++---+------------+-----------+------------+-----------+----------+-------------------+
+|id |Sepal_Length|Sepal_Width|Petal_Length|Petal_Width|Species   |p                  |
++---+------------+-----------+------------+-----------+----------+-------------------+
+|54 |5.5         |2.3        |4.0         |1.3        |versicolor|[0.0, 0.07, 0.93]  |
+|67 |5.6         |3.0        |4.5         |1.5        |versicolor|[0.0, 0.077, 0.923]|
+|71 |5.9         |3.2        |4.8         |1.8        |versicolor|[0.0, 0.947, 0.053]|
+|74 |6.1         |2.8        |4.7         |1.2        |versicolor|[0.0, 0.088, 0.912]|
+|78 |6.7         |3.0        |5.0         |1.7        |versicolor|[0.0, 0.671, 0.329]|
+|85 |5.4         |3.0        |4.5         |1.5        |versicolor|[0.0, 0.153, 0.847]|
+|88 |6.3         |2.3        |4.4         |1.3        |versicolor|[0.0, 0.083, 0.917]|
+|91 |5.5         |2.6        |4.4         |1.2        |versicolor|[0.0, 0.06, 0.94]  |
+|134|6.3         |2.8        |5.1         |1.5        |virginica |[0.0, 0.784, 0.216]|
++---+------------+-----------+------------+-----------+----------+-------------------+
+
+=== Old Faithful: GMM (k=2) on eruption duration ===
++-------+------------------+------------------+
+|summary|         eruptions|           waiting|
++-------+------------------+------------------+
+|  count|               272|               272|
+|   mean|3.4877830882352936|  70.8970588235294|
+| stddev|1.1413712511052083|13.594973789999392|
+|    min|               1.6|                43|
+|    max|               5.1|                96|
++-------+------------------+------------------+
+
+  component 0: mean = 2.0186 min, variance = 0.0555, weight = 0.3484
+  component 1: mean = 4.2733 min, variance = 0.1910, weight = 0.6516
+  eruption 1.8 min: P(component 0) = 1.0000, P(component 1) = 0.0000
+  eruption 2.8 min: P(component 0) = 0.5436, P(component 1) = 0.4564
+  eruption 3.0 min: P(component 0) = 0.0117, P(component 1) = 0.9883
+  eruption 3.2 min: P(component 0) = 0.0001, P(component 1) = 0.9999
+  eruption 4.5 min: P(component 0) = 0.0000, P(component 1) = 1.0000
+  E-step x=2.8: pi_0 * N(x | 2.0186, 0.0555) = 0.3484 * 0.006927 = 0.002414
+  E-step x=2.8: pi_1 * N(x | 4.2733, 0.1910) = 0.6516 * 0.003110 = 0.002026
+  responsibility of component 0 = 0.002414 / 0.004440 = 0.5436
+  eruptions between 2.5 and 3.5 min in the data: 12 of 272

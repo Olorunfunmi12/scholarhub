@@ -5,14 +5,22 @@ Classification on Apache Spark:
   2. Support Vector Machine (SVM)  -> pyspark.ml.classification.LinearSVC
   3. Random Forest                 -> pyspark.ml.classification.RandomForestClassifier
 
-Part A: tiny categorical "Play Tennis" data -> Naive Bayes computed by hand
-        with DataFrame aggregations, then with Spark's multinomial NaiveBayes.
-Part B: synthetic email-spam data (3 numeric features, 400 emails) -> all three
-        classifiers trained on 70% and evaluated on the same 30% test split.
+Datasets (all real, published data):
+  * Play Tennis - the 14-day weather table of Quinlan (1986) as printed in
+    Mitchell, "Machine Learning" (1997), Table 3.2 (Wind column omitted).
+  * iris        - Anderson (1935) / Fisher (1936), data/iris.csv.
+  * spam7       - 4,601 real e-mails from the UCI Spambase collection (Hopkins,
+    Reeber, Forman & Suermondt, Hewlett-Packard Labs, 1999), as the 6-feature
+    subset in the R package DAAG (Maindonald & Braun), data/spam7.csv.
 
-Run:  spark-submit q4_classification.py      (or: python3 q4_classification.py)
+Part A: Play Tennis -> Naive Bayes and Gini splits by hand, then Spark NaiveBayes
+        and a small RandomForest; LinearSVC on two iris species (hand-checked).
+Part B: spam7 -> all three classifiers trained on 70% and evaluated on the same 30%.
+
+Run from the cosc611-midterm folder:  spark-submit code/q4_classification.py
 """
-import random
+import math
+import os
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -22,6 +30,7 @@ from pyspark.ml.classification import NaiveBayes, LinearSVC, RandomForestClassif
 from pyspark.ml.evaluation import (MulticlassClassificationEvaluator,
                                    BinaryClassificationEvaluator)
 
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
 spark = (SparkSession.builder.appName("Q4-Classification")
          .master("local[*]").getOrCreate())
 spark.sparkContext.setLogLevel("ERROR")
@@ -112,52 +121,62 @@ rp = feat_day.first()
 print(f"  forest probability: P({labels[0]})={rp.probability[0]:.3f}, "
       f"P({labels[1]})={rp.probability[1]:.3f} -> {labels[int(rp.prediction)]}")
 
-# --- SVM on a tiny linearly separable 2-D set (hand-solvable max margin)
-print("\nSVM on a tiny 2-D example:")
-toy = spark.createDataFrame([
-    (1.0, 1.0, 0.0), (2.0, 1.0, 0.0), (1.0, 2.0, 0.0),     # class -1 (label 0)
-    (3.0, 3.0, 1.0), (4.0, 3.0, 1.0), (3.0, 4.0, 1.0),     # class +1 (label 1)
-], ["x1", "x2", "label"])
-toy = VectorAssembler(inputCols=["x1", "x2"], outputCol="features").transform(toy)
-toy.show()
-svc = LinearSVC(regParam=1e-4, maxIter=1000, standardization=False, tol=1e-9).fit(toy)
+# --- SVM on real data: iris setosa vs versicolor, petal length and width
+print("\nLinear SVM on iris: setosa (label 0) vs versicolor (label 1), petal features")
+iris = (spark.read.csv(os.path.join(DATA, "iris.csv"), header=True, inferSchema=True)
+        .withColumnRenamed("rownames", "id")
+        .withColumnRenamed("Petal.Length", "petal_len")
+        .withColumnRenamed("Petal.Width", "petal_wid")
+        .where(F.col("Species").isin("setosa", "versicolor"))
+        .withColumn("label", F.when(F.col("Species") == "versicolor", 1.0).otherwise(0.0)))
+two = VectorAssembler(inputCols=["petal_len", "petal_wid"], outputCol="features").transform(iris)
+two.groupBy("Species").agg(F.min("petal_len"), F.max("petal_len"),
+                           F.min("petal_wid"), F.max("petal_wid")).orderBy("Species").show()
+svc = LinearSVC(regParam=0.001, maxIter=1000, standardization=False).fit(two)
 w1, w2 = (float(v) for v in svc.coefficients)
 b = float(svc.intercept)
-print(f"  Spark LinearSVC: w = ({w1:.4f}, {w2:.4f}), b = {b:.4f}, "
-      f"margin 2/||w|| = {2 / (w1**2 + w2**2) ** 0.5:.4f}")
-print("  hand solution  : w = (0.6667, 0.6667), b = -3.0000, margin = 2.1213")
-print("  (LinearSVC minimises regularised hinge loss with OWL-QN, an approximation of")
-print("   the exact max-margin QP: both lines separate the classes, same direction w)")
-for r in svc.transform(toy).select("x1", "x2", "label", "rawPrediction").collect():
-    print(f"    point ({r.x1:.0f},{r.x2:.0f}) label {int(r.label)}: "
-          f"w.x + b = {r.rawPrediction[1]:+.4f}")
+print(f"  Spark LinearSVC hyperplane: {w1:.4f}*petal_len + {w2:.4f}*petal_wid + ({b:.4f}) = 0")
+print(f"  margin width 2/||w|| = {2 / (w1 ** 2 + w2 ** 2) ** 0.5:.4f} cm")
+scored = svc.transform(two).withColumn("score", F.udf(lambda v: float(v[1]), "double")("rawPrediction"))
+print("  the flowers closest to the boundary (smallest |w.x + b|, i.e. the support vectors):")
+(scored.withColumn("abs_score", F.abs("score")).orderBy("abs_score")
+ .select("id", "Species", "petal_len", "petal_wid", F.round("score", 4).alias("w.x+b"),
+         "prediction").show(4))
+for fid in [1, 51]:
+    r = scored.where(F.col("id") == fid).first()
+    print(f"  hand check flower {fid} ({r.Species}): {w1:.4f}*{r.petal_len} + "
+          f"{w2:.4f}*{r.petal_wid} + ({b:.4f}) = {w1 * r.petal_len + w2 * r.petal_wid + b:.4f}"
+          f" -> class {'versicolor' if w1 * r.petal_len + w2 * r.petal_wid + b > 0 else 'setosa'}")
+acc_two = scored.where(F.col("label") == F.col("prediction")).count() / scored.count()
+print(f"  training accuracy = {acc_two:.4f} (the two species are linearly separable)")
 
 # ===========================================================================
-# PART B - Compare Naive Bayes, SVM and Random Forest on spam data
+# PART B - Compare Naive Bayes, SVM and Random Forest on real spam e-mail
 # ===========================================================================
 print()
 print("=" * 72)
-print("PART B: Spam detection - Naive Bayes vs SVM vs Random Forest")
+print("PART B: Spam detection (spam7) - Naive Bayes vs SVM vs Random Forest")
 print("=" * 72)
-random.seed(611)
-rows = []
-for _ in range(200):   # ham (label 0)
-    rows.append((random.gauss(2, 1.5), random.gauss(1, 1.0),
-                 random.gauss(0.10, 0.08), 0.0))
-for _ in range(200):   # spam (label 1)
-    rows.append((random.gauss(6, 2.0), random.gauss(4, 1.5),
-                 random.gauss(0.35, 0.12), 1.0))
-# features: number of links, count of words like "free"/"win", fraction of CAPS
-emails = spark.createDataFrame(
-    [(max(0.0, a), max(0.0, b), min(1.0, max(0.0, c)), y) for a, b, c, y in rows],
-    ["links", "spam_words", "caps_ratio", "label"])
-print("Sample of the data (400 emails, 200 spam / 200 ham):")
+FEATS = ["crl_tot", "dollar", "bang", "money", "n000", "make"]
+emails = (spark.read.csv(os.path.join(DATA, "spam7.csv"), header=True, inferSchema=True)
+          .drop("rownames").withColumnRenamed("crl.tot", "crl_tot")
+          .withColumn("label", F.when(F.col("yesno") == "y", 1.0).otherwise(0.0)))
+print("features: crl_tot = total length of runs of CAPITAL letters; dollar, bang, money,")
+print("n000, make = % of characters that are '$' / '!' and % of words 'money' / '000' / 'make'")
 emails.show(5)
-emails.groupBy("label").agg(*[F.round(F.mean(c), 3).alias("mean_" + c)
-                              for c in ["links", "spam_words", "caps_ratio"]]).show()
+print(f"{emails.count()} e-mails; class balance:")
+emails.groupBy("label").count().orderBy("label").show()
+emails.groupBy("label").agg(*[F.round(F.mean(c), 3).alias(c) for c in FEATS]) \
+    .orderBy("label").show()
 
-emails = VectorAssembler(inputCols=["links", "spam_words", "caps_ratio"],
-                         outputCol="features").transform(emails)
+# Gaussian NB assumes each feature is normal within a class; these counts and
+# percentages are heavily right-skewed, so we also try NB on log(1 + x)
+for c in FEATS:
+    emails = emails.withColumn("log_" + c, F.log1p(c))
+emails = VectorAssembler(inputCols=FEATS, outputCol="features").transform(emails)
+emails = VectorAssembler(inputCols=["log_" + c for c in FEATS],
+                         outputCol="logfeatures").transform(emails)
+emails = emails.withColumn("eid", F.monotonically_increasing_id())
 train, test = emails.randomSplit([0.7, 0.3], seed=42)
 train.cache()
 print(f"train rows = {train.count()}, test rows = {test.count()}")
@@ -167,18 +186,25 @@ scaler = StandardScaler(inputCol="features", outputCol="scaled",
 models = {
     "Naive Bayes (Gaussian)": Pipeline(stages=[
         NaiveBayes(featuresCol="features", modelType="gaussian")]),
+    "Naive Bayes (log1p feats)": Pipeline(stages=[
+        NaiveBayes(featuresCol="logfeatures", modelType="gaussian")]),
     "Linear SVM (LinearSVC)": Pipeline(stages=[
-        scaler, LinearSVC(featuresCol="scaled", maxIter=100, regParam=0.01)]),
+        scaler, LinearSVC(featuresCol="scaled", maxIter=200, regParam=0.01)]),
     "Random Forest (100 trees)": Pipeline(stages=[
         RandomForestClassifier(featuresCol="features", numTrees=100,
-                               maxDepth=5, seed=42)]),
+                               maxDepth=8, seed=42)]),
 }
 acc = MulticlassClassificationEvaluator(metricName="accuracy")
 f1 = MulticlassClassificationEvaluator(metricName="f1")
 prec = MulticlassClassificationEvaluator(metricName="precisionByLabel", metricLabel=1.0)
 rec = MulticlassClassificationEvaluator(metricName="recallByLabel", metricLabel=1.0)
-auc = BinaryClassificationEvaluator(rawPredictionCol="rawPrediction",
-                                    metricName="areaUnderROC")
+# ROC-AUC needs a score that ranks e-mails by "spamminess": the class-1 probability
+# for NB and RF, the signed margin w.x + b (rawPrediction) for the SVM, which has
+# no probability output. (NB's rawPrediction holds log-likelihoods, not a score.)
+auc_prob = BinaryClassificationEvaluator(rawPredictionCol="probability",
+                                         metricName="areaUnderROC")
+auc_raw = BinaryClassificationEvaluator(rawPredictionCol="rawPrediction",
+                                        metricName="areaUnderROC")
 
 fitted = {}
 print(f"\n{'Model':28s}{'Accuracy':>10s}{'F1':>8s}{'Prec':>8s}{'Recall':>8s}{'AUC':>8s}")
@@ -187,7 +213,8 @@ for name, pipe in models.items():
     fitted[name] = m
     pr = m.transform(test)
     print(f"{name:28s}{acc.evaluate(pr):10.4f}{f1.evaluate(pr):8.4f}"
-          f"{prec.evaluate(pr):8.4f}{rec.evaluate(pr):8.4f}{auc.evaluate(pr):8.4f}")
+          f"{prec.evaluate(pr):8.4f}{rec.evaluate(pr):8.4f}"
+          f"{(auc_raw if 'SVM' in name else auc_prob).evaluate(pr):8.4f}")
 
 for name, m in fitted.items():
     pr = m.transform(test)
@@ -195,36 +222,31 @@ for name, m in fitted.items():
     pr.groupBy("label").pivot("prediction", [0.0, 1.0]).count().fillna(0) \
       .orderBy("label").show()
 
-# Model internals
 nbm = fitted["Naive Bayes (Gaussian)"].stages[-1]
-print("Naive Bayes - class log-priors:", [round(float(x), 4) for x in nbm.pi])
-print("Naive Bayes - per-class feature means (theta):")
+print("Naive Bayes - class priors:", [round(math.exp(float(x)), 4) for x in nbm.pi])
+print("Naive Bayes - per-class feature means (rows = ham, spam; cols =", FEATS, "):")
 print(nbm.theta)
-print("Naive Bayes - per-class feature variances (sigma):")
-print(nbm.sigma)
 svm = fitted["Linear SVM (LinearSVC)"].stages[-1]
-print("\nSVM hyperplane on standardised features: w =",
-      [round(float(x), 4) for x in svm.coefficients], " b =", round(float(svm.intercept), 4))
+print("\nSVM hyperplane on standardised features:",
+      dict(zip(FEATS, [round(float(x), 4) for x in svm.coefficients])),
+      " b =", round(float(svm.intercept), 4))
 rf = fitted["Random Forest (100 trees)"].stages[-1]
 print("\nRandom Forest feature importances:",
-      dict(zip(["links", "spam_words", "caps_ratio"],
-               [round(float(x), 4) for x in rf.featureImportances.toArray()])))
+      dict(zip(FEATS, [round(float(x), 4) for x in rf.featureImportances.toArray()])))
 
-new_emails = spark.createDataFrame([
-    (1.0, 0.0, 0.05, 0.0),   # looks like normal mail
-    (8.0, 6.0, 0.50, 1.0),   # looks like spam
-    (4.0, 2.5, 0.22, 1.0),   # borderline
-], ["links", "spam_words", "caps_ratio", "label"])
-new_emails = VectorAssembler(inputCols=["links", "spam_words", "caps_ratio"],
-                             outputCol="features").transform(new_emails)
-print("\nPredictions for three new emails (1 = spam):")
-out = new_emails.select("links", "spam_words", "caps_ratio")
+print("\nPredictions for the first 3 test e-mails that the models disagree on, "
+      "and 2 they agree on:")
+both = None
 for name, m in fitted.items():
+    if "log1p" in name:
+        continue
     short = name.split(" (")[0].replace(" ", "_")
-    out = out.join(m.transform(new_emails)
-                   .select("links", "spam_words", "caps_ratio",
-                           F.col("prediction").alias(short)),
-                   ["links", "spam_words", "caps_ratio"])
-out.show()
+    p = m.transform(test).select("eid", *FEATS, "label", F.col("prediction").alias(short))
+    both = p if both is None else both.join(p.select("eid", short), "eid")
+dis = both.where((F.col("Naive_Bayes") != F.col("Linear_SVM")) |
+                 (F.col("Linear_SVM") != F.col("Random_Forest")))
+agree = both.join(dis.select("eid"), "eid", "left_anti")
+dis.orderBy("eid").limit(3).union(agree.orderBy("eid").limit(2)).drop("eid").show()
+print(f"models disagree on {dis.count()} of {test.count()} test e-mails")
 
 spark.stop()
