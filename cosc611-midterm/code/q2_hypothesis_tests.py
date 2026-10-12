@@ -8,7 +8,8 @@ Hypothesis testing on Apache Spark: Chi-square test, Student's t-test, F-test.
     test statistic is computed from distributed aggregates (count/mean/var);
     the p-value comes from the t distribution (scipy)
   * F-test for equality of variances  -> computed from Spark aggregates
-  * One-way ANOVA F-test              -> pyspark.ml.stat.ANOVATest
+  * One-way ANOVA F-test              -> org.apache.spark.ml.stat.ANOVATest
+    (Scala class; PySpark has no Python wrapper, so it is called via the JVM)
 
 Every Spark result is cross-checked against scipy.stats.
 
@@ -17,7 +18,8 @@ Run:  spark-submit q2_hypothesis_tests.py      (or: python3 q2_hypothesis_tests.
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.ml.linalg import Vectors
-from pyspark.ml.stat import ChiSquareTest, ANOVATest
+from pyspark.ml.stat import ChiSquareTest
+from pyspark.sql import DataFrame
 from scipy import stats
 
 ALPHA = 0.05
@@ -171,8 +173,10 @@ print(f"Manual F = MSB/MSW = {msb/msw:.4f}, df = ({k-1}, {n-k})")
 # Spark ANOVATest: categorical label vs continuous feature
 anova_df = VectorAssembler(inputCols=["yield"], outputCol="features") \
     .transform(crop).withColumnRenamed("fertiliser", "label")
-ar = ANOVATest.test(anova_df, "features", "label").head()
-print(f"Spark ANOVATest: F = {ar.fValues[0]:.4f}, df = {ar.degreesOfFreedom[0]}, "
+jdf = spark._jvm.org.apache.spark.ml.stat.ANOVATest.test(
+    anova_df._jdf, "features", "label")
+ar = DataFrame(jdf, spark).head()
+print(f"Spark ANOVATest: F = {ar.fValues[0]:.4f}, df = ({k-1}, {n-k}), "
       f"p-value = {ar.pValues[0]:.6f}")
 sc_f = stats.f_oneway(*groups.values())
 print(f"scipy check:     F = {sc_f.statistic:.4f}, p-value = {sc_f.pvalue:.6f}")

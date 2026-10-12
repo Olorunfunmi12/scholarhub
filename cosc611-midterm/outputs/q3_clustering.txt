@@ -1,0 +1,116 @@
+=== Input data: customers (income k$, spending score) ===
++---+------+--------+------------+
+|id |income|spending|features    |
++---+------+--------+------------+
+|1  |15    |39      |[15.0,39.0] |
+|2  |17    |35      |[17.0,35.0] |
+|3  |19    |40      |[19.0,40.0] |
+|4  |21    |33      |[21.0,33.0] |
+|5  |23    |38      |[23.0,38.0] |
+|6  |16    |81      |[16.0,81.0] |
+|7  |18    |77      |[18.0,77.0] |
+|8  |20    |85      |[20.0,85.0] |
+|9  |22    |79      |[22.0,79.0] |
+|10 |24    |83      |[24.0,83.0] |
+|11 |60    |50      |[60.0,50.0] |
+|12 |62    |55      |[62.0,55.0] |
+|13 |63    |48      |[63.0,48.0] |
+|14 |65    |52      |[65.0,52.0] |
+|15 |64    |45      |[64.0,45.0] |
+|16 |100   |90      |[100.0,90.0]|
+|17 |103   |85      |[103.0,85.0]|
+|18 |98    |88      |[98.0,88.0] |
+|19 |105   |92      |[105.0,92.0]|
+|20 |97    |86      |[97.0,86.0] |
++---+------+--------+------------+
+only showing top 20 rows
+=== Hand-traced K-Means (k=2) on points P1..P4, first iteration ===
+  P1(15, 39): d(C1)=0.00  d(C2)=46.32  -> C1
+  P2(19, 40): d(C1)=4.12  d(C2)=42.20  -> C1
+  P3(60, 50): d(C1)=46.32  d(C2)=0.00  -> C2
+  P4(64, 45): d(C1)=49.37  d(C2)=6.40  -> C2
+  new C1 = mean of [(15, 39), (19, 40)] = (17.0, 39.5)
+  new C2 = mean of [(60, 50), (64, 45)] = (62.0, 47.5)
+
+=== Choosing k (elbow + silhouette) ===
+  k=2: WSSSE =   22543.17   silhouette = 0.6377
+  k=3: WSSSE =   11767.33   silhouette = 0.7553
+  k=4: WSSSE =    7515.21   silhouette = 0.6796
+  k=5: WSSSE =     405.20   silhouette = 0.9818
+  k=6: WSSSE =     361.87   silhouette = 0.8781
+
+=== 1. K-Means (k=5) ===
+  centroid 0: income=19.00, spending=37.00
+  centroid 1: income=100.60, spending=88.20
+  centroid 2: income=100.40, spending=17.40
+  centroid 3: income=20.00, spending=81.00
+  centroid 4: income=62.80, spending=50.00
+  WSSSE = 405.20, silhouette = 0.9818, cluster sizes = [5, 5, 5, 5, 5]
+
+=== 2. Bisecting K-Means (k=5) ===
+  how the hierarchy unfolds (cluster centres and sizes for k = 2, 3, 4):
+    k=2: (19.5, 59.0) n=10, (87.9, 51.9) n=15
+    k=3: (19.5, 59.0) n=10, (81.6, 33.7) n=10, (100.6, 88.2) n=5
+    k=4: (19.0, 37.0) n=5, (20.0, 81.0) n=5, (62.8, 50.0) n=5, (100.5, 52.8) n=10
+  centroid 0: income=19.00, spending=37.00
+  centroid 1: income=20.00, spending=81.00
+  centroid 2: income=62.80, spending=50.00
+  centroid 3: income=100.40, spending=17.40
+  centroid 4: income=100.60, spending=88.20
+  SSE = 405.20, silhouette = 0.9818, cluster sizes = [5, 5, 5, 5, 5]
+
+=== 3. Gaussian Mixture Model (k=5) ===
+  mixture weights: [0.2, 0.2, 0.2, 0.2, 0.2]
+  component 0: mean = [62.80, 50.00]
+  component 1: mean = [100.60, 88.20]
+  component 2: mean = [19.00, 37.00]
+  component 3: mean = [100.40, 17.40]
+  component 4: mean = [20.00, 81.00]
+  log-likelihood = -160.5575, silhouette = 0.9818, cluster sizes = [5, 5, 5, 5, 5]
+  soft membership probabilities (first 6 customers):
+    customer  1: 0.000, 0.000, 1.000, 0.000, 0.000
+    customer  2: 0.000, 0.000, 1.000, 0.000, 0.000
+    customer  3: 0.000, 0.000, 1.000, 0.000, 0.000
+    customer  4: 0.000, 0.000, 1.000, 0.000, 0.000
+    customer  5: 0.000, 0.000, 1.000, 0.000, 0.000
+    customer  6: 0.000, 0.000, 0.000, 0.000, 1.000
+  overlapping 1-D example (ages), GMM k=2:
+    component 0: mean = 27.62, variance = 11.85, weight = 0.452
+    component 1: mean = 42.17, variance = 22.01, weight = 0.548
+    age   25: P(component 0) = 0.999, P(component 1) = 0.001
+    age   33: P(component 0) = 0.691, P(component 1) = 0.309
+    age   35: P(component 0) = 0.266, P(component 1) = 0.734
+    age   37: P(component 0) = 0.048, P(component 1) = 0.952
+    age   47: P(component 0) = 0.000, P(component 1) = 1.000
+
+=== Cluster assignment by algorithm ===
++---+------+--------+------+---------+---+
+|id |income|spending|kmeans|bisecting|gmm|
++---+------+--------+------+---------+---+
+|1  |15    |39      |0     |0        |2  |
+|2  |17    |35      |0     |0        |2  |
+|3  |19    |40      |0     |0        |2  |
+|4  |21    |33      |0     |0        |2  |
+|5  |23    |38      |0     |0        |2  |
+|6  |16    |81      |3     |1        |4  |
+|7  |18    |77      |3     |1        |4  |
+|8  |20    |85      |3     |1        |4  |
+|9  |22    |79      |3     |1        |4  |
+|10 |24    |83      |3     |1        |4  |
+|11 |60    |50      |4     |2        |0  |
+|12 |62    |55      |4     |2        |0  |
+|13 |63    |48      |4     |2        |0  |
+|14 |65    |52      |4     |2        |0  |
+|15 |64    |45      |4     |2        |0  |
+|16 |100   |90      |1     |4        |1  |
+|17 |103   |85      |1     |4        |1  |
+|18 |98    |88      |1     |4        |1  |
+|19 |105   |92      |1     |4        |1  |
+|20 |97    |86      |1     |4        |1  |
+|21 |101   |15      |2     |3        |3  |
+|22 |99    |20      |2     |3        |3  |
+|23 |104   |12      |2     |3        |3  |
+|24 |96    |18      |2     |3        |3  |
+|25 |102   |22      |2     |3        |3  |
++---+------+--------+------+---------+---+
+

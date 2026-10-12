@@ -79,6 +79,59 @@ p = nb_model.transform(new_day).select("probability", "prediction").first()
 print(f"  Spark NaiveBayes (Laplace smoothing): P({labels[0]})={p.probability[0]:.4f}, "
       f"P({labels[1]})={p.probability[1]:.4f} -> {labels[int(p.prediction)]}")
 
+# --- Random Forest on the same data: Gini of candidate root splits by hand,
+#     then a 7-tree forest and the vote of each tree for the new day
+print("\nRandom Forest building block - Gini impurity of each candidate root split:")
+
+
+def gini(counts):
+    n = sum(counts)
+    return 1 - sum((c / n) ** 2 for c in counts)
+
+
+root = [r["count"] for r in tennis.groupBy("play").count().collect()]
+g_root = gini(root)
+print(f"  Gini(root) = {g_root:.4f}")
+for feat in ["outlook", "temp", "humidity"]:
+    parts = (tennis.groupBy(feat).pivot("play", ["Yes", "No"]).count()
+             .fillna(0).collect())
+    w = sum((r.Yes + r.No) / N * gini([r.Yes, r.No]) for r in parts)
+    detail = ", ".join(f"{r[feat]}({r.Yes}Y/{r.No}N)" for r in parts)
+    print(f"  split on {feat:8s}: {detail}  weighted Gini = {w:.4f}, "
+          f"gain = {g_root - w:.4f}")
+
+rf_pipe = Pipeline(stages=idx + [ohe, asm, lbl,
+                                 RandomForestClassifier(numTrees=7, maxDepth=3,
+                                                        seed=11)])
+rf_model = rf_pipe.fit(tennis)
+feat_day = rf_model.transform(new_day)
+forest = rf_model.stages[-1]
+votes = [labels[int(t.predict(feat_day.first().features))] for t in forest.trees]
+print(f"  votes of the {len(votes)} trees for {query}: {votes}")
+rp = feat_day.first()
+print(f"  forest probability: P({labels[0]})={rp.probability[0]:.3f}, "
+      f"P({labels[1]})={rp.probability[1]:.3f} -> {labels[int(rp.prediction)]}")
+
+# --- SVM on a tiny linearly separable 2-D set (hand-solvable max margin)
+print("\nSVM on a tiny 2-D example:")
+toy = spark.createDataFrame([
+    (1.0, 1.0, 0.0), (2.0, 1.0, 0.0), (1.0, 2.0, 0.0),     # class -1 (label 0)
+    (3.0, 3.0, 1.0), (4.0, 3.0, 1.0), (3.0, 4.0, 1.0),     # class +1 (label 1)
+], ["x1", "x2", "label"])
+toy = VectorAssembler(inputCols=["x1", "x2"], outputCol="features").transform(toy)
+toy.show()
+svc = LinearSVC(regParam=1e-4, maxIter=1000, standardization=False, tol=1e-9).fit(toy)
+w1, w2 = (float(v) for v in svc.coefficients)
+b = float(svc.intercept)
+print(f"  Spark LinearSVC: w = ({w1:.4f}, {w2:.4f}), b = {b:.4f}, "
+      f"margin 2/||w|| = {2 / (w1**2 + w2**2) ** 0.5:.4f}")
+print("  hand solution  : w = (0.6667, 0.6667), b = -3.0000, margin = 2.1213")
+print("  (LinearSVC minimises regularised hinge loss with OWL-QN, an approximation of")
+print("   the exact max-margin QP: both lines separate the classes, same direction w)")
+for r in svc.transform(toy).select("x1", "x2", "label", "rawPrediction").collect():
+    print(f"    point ({r.x1:.0f},{r.x2:.0f}) label {int(r.label)}: "
+          f"w.x + b = {r.rawPrediction[1]:+.4f}")
+
 # ===========================================================================
 # PART B - Compare Naive Bayes, SVM and Random Forest on spam data
 # ===========================================================================
@@ -144,18 +197,18 @@ for name, m in fitted.items():
 
 # Model internals
 nbm = fitted["Naive Bayes (Gaussian)"].stages[-1]
-print("Naive Bayes - class log-priors:", [round(x, 4) for x in nbm.pi])
+print("Naive Bayes - class log-priors:", [round(float(x), 4) for x in nbm.pi])
 print("Naive Bayes - per-class feature means (theta):")
 print(nbm.theta)
 print("Naive Bayes - per-class feature variances (sigma):")
 print(nbm.sigma)
 svm = fitted["Linear SVM (LinearSVC)"].stages[-1]
 print("\nSVM hyperplane on standardised features: w =",
-      [round(x, 4) for x in svm.coefficients], " b =", round(svm.intercept, 4))
+      [round(float(x), 4) for x in svm.coefficients], " b =", round(float(svm.intercept), 4))
 rf = fitted["Random Forest (100 trees)"].stages[-1]
 print("\nRandom Forest feature importances:",
       dict(zip(["links", "spam_words", "caps_ratio"],
-               [round(x, 4) for x in rf.featureImportances.toArray()])))
+               [round(float(x), 4) for x in rf.featureImportances.toArray()])))
 
 new_emails = spark.createDataFrame([
     (1.0, 0.0, 0.05, 0.0),   # looks like normal mail

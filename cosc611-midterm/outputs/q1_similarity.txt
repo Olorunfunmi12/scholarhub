@@ -1,0 +1,90 @@
+=== Input data: user x movie rating matrix ===
+columns: ['Inception', 'Titanic', 'Avatar', 'Matrix', 'Frozen']
++-----+---------------------+
+|user |features             |
++-----+---------------------+
+|Alice|[5.0,3.0,0.0,4.0,1.0]|
+|Bob  |[4.0,0.0,0.0,5.0,1.0]|
+|Carol|[1.0,5.0,4.0,0.0,5.0]|
+|Dave |[5.0,4.0,1.0,4.0,0.0]|
+|Eve  |[0.0,5.0,5.0,1.0,4.0]|
++-----+---------------------+
+
+=== Pairwise similarity / distance between users ===
++-----+-----+---------+----------+---------+------+-------+-------+
+|u1   |u2   |euclidean|euclid_sim|manhattan|cosine|pearson|jaccard|
++-----+-----+---------+----------+---------+------+-------+-------+
+|Alice|Bob  |3.3166   |0.2317    |5.0      |0.8859|0.7711 |0.75   |
+|Alice|Carol|8.2462   |0.1082    |18.0     |0.4277|-0.7197|0.6    |
+|Alice|Dave |1.7321   |0.366     |3.0      |0.9745|0.9231 |0.6    |
+|Alice|Eve  |8.4853   |0.1054    |18.0     |0.3935|-0.8225|0.6    |
+|Bob  |Carol|9.5394   |0.0949    |21.0     |0.1697|-0.9545|0.4    |
+|Bob  |Dave |4.4721   |0.1827    |8.0      |0.8104|0.5901 |0.4    |
+|Bob  |Eve  |9.5394   |0.0949    |21.0     |0.1697|-0.9545|0.4    |
+|Carol|Dave |8.1854   |0.1089    |17.0     |0.4652|-0.6392|0.6    |
+|Carol|Eve  |2.0      |0.3333    |4.0      |0.9701|0.9091 |0.6    |
+|Dave |Eve  |8.1854   |0.1089    |17.0     |0.4652|-0.6392|0.6    |
++-----+-----+---------+----------+---------+------+-------+-------+
+
+=== Most similar user to Alice under each measure ===
+  euclidean : Dave  (euclidean = 1.7321)
+  manhattan : Dave  (manhattan = 3.0)
+  cosine    : Dave  (cosine = 0.9745)
+  pearson   : Dave  (pearson = 0.9231)
+  jaccard   : Bob  (jaccard = 0.75)
+=== Cosine similarity via Normalizer + dot product (same values) ===
++-----+-----+------+
+|u1   |u2   |cosine|
++-----+-----+------+
+|Alice|Dave |0.9745|
+|Carol|Eve  |0.9701|
+|Alice|Bob  |0.8859|
+|Bob  |Dave |0.8104|
+|Dave |Eve  |0.4652|
+|Carol|Dave |0.4652|
+|Alice|Carol|0.4277|
+|Alice|Eve  |0.3935|
+|Bob  |Carol|0.1697|
+|Bob  |Eve  |0.1697|
++-----+-----+------+
+
+=== Pearson correlation matrix between users (Correlation.corr) ===
+            Alice     Bob   Carol    Dave     Eve
+   Alice    1.000   0.771  -0.720   0.923  -0.823
+     Bob    0.771   1.000  -0.955   0.590  -0.955
+   Carol   -0.720  -0.955   1.000  -0.639   0.909
+    Dave    0.923   0.590  -0.639   1.000  -0.639
+     Eve   -0.823  -0.955   0.909  -0.639   1.000
+=== Approximate Jaccard similarity with MinHash LSH (50 hash tables) ===
++-----+-----+--------------+-------+
+|u1   |u2   |approx_jaccard|jaccard|
++-----+-----+--------------+-------+
+|Alice|Bob  |0.75          |0.75   |
+|Alice|Carol|0.6           |0.6    |
+|Alice|Dave |0.6           |0.6    |
+|Alice|Eve  |0.6           |0.6    |
+|Bob  |Carol|0.4           |0.4    |
+|Bob  |Dave |0.4           |0.4    |
+|Bob  |Eve  |0.4           |0.4    |
+|Carol|Dave |0.6           |0.6    |
+|Carol|Eve  |0.6           |0.6    |
+|Dave |Eve  |0.6           |0.6    |
++-----+-----+--------------+-------+
+
+=== Document similarity (bag-of-words) ===
++---+------------------------------------+
+|id |text                                |
++---+------------------------------------+
+|0  |big data analytics with spark       |
+|1  |spark makes big data processing fast|
+|2  |the cat sat on the mat              |
++---+------------------------------------+
+
++----+----+------+-------+
+|doc1|doc2|cosine|jaccard|
++----+----+------+-------+
+|0   |1   |0.5477|0.375  |
+|0   |2   |0.0   |0.0    |
+|1   |2   |0.0   |0.0    |
++----+----+------+-------+
+

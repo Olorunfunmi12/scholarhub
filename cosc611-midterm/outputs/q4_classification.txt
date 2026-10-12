@@ -1,0 +1,136 @@
+========================================================================
+PART A: Naive Bayes on the 'Play Tennis' data
+========================================================================
++--------+----+--------+----+
+| outlook|temp|humidity|play|
++--------+----+--------+----+
+|   Sunny| Hot|    High|  No|
+|   Sunny| Hot|    High|  No|
+|Overcast| Hot|    High| Yes|
+|    Rain|Mild|    High| Yes|
+|    Rain|Cool|  Normal| Yes|
+|    Rain|Cool|  Normal|  No|
+|Overcast|Cool|  Normal| Yes|
+|   Sunny|Mild|    High|  No|
+|   Sunny|Cool|  Normal| Yes|
+|    Rain|Mild|  Normal| Yes|
+|   Sunny|Mild|  Normal| Yes|
+|Overcast|Mild|    High| Yes|
+|Overcast| Hot|  Normal| Yes|
+|    Rain|Mild|    High|  No|
++--------+----+--------+----+
+
+Classify new day: {'outlook': 'Sunny', 'temp': 'Cool', 'humidity': 'High'}
+  Yes: P(Yes)=9/14 x P(outlook=Sunny|Yes)=2/9 x P(temp=Cool|Yes)=3/9 x P(humidity=High|Yes)=3/9 = 0.01587
+  No : P(No)=5/14 x P(outlook=Sunny|No)=3/5 x P(temp=Cool|No)=1/5 x P(humidity=High|No)=4/5 = 0.03429
+  posterior P(Yes|x) = 0.3165
+  posterior P(No|x) = 0.6835
+  => prediction: No
+  Spark NaiveBayes (Laplace smoothing): P(Yes)=0.3621, P(No)=0.6379 -> No
+
+Random Forest building block - Gini impurity of each candidate root split:
+  Gini(root) = 0.4592
+  split on outlook : Sunny(2Y/3N), Rain(3Y/2N), Overcast(4Y/0N)  weighted Gini = 0.3429, gain = 0.1163
+  split on temp    : Cool(3Y/1N), Mild(4Y/2N), Hot(2Y/2N)  weighted Gini = 0.4405, gain = 0.0187
+  split on humidity: High(3Y/4N), Normal(6Y/1N)  weighted Gini = 0.3673, gain = 0.0918
+  votes of the 7 trees for {'outlook': 'Sunny', 'temp': 'Cool', 'humidity': 'High'}: ['No', 'No', 'Yes', 'Yes', 'No', 'No', 'No']
+  forest probability: P(Yes)=0.299, P(No)=0.701 -> No
+
+SVM on a tiny 2-D example:
++---+---+-----+---------+
+| x1| x2|label| features|
++---+---+-----+---------+
+|1.0|1.0|  0.0|[1.0,1.0]|
+|2.0|1.0|  0.0|[2.0,1.0]|
+|1.0|2.0|  0.0|[1.0,2.0]|
+|3.0|3.0|  1.0|[3.0,3.0]|
+|4.0|3.0|  1.0|[4.0,3.0]|
+|3.0|4.0|  1.0|[3.0,4.0]|
++---+---+-----+---------+
+
+  Spark LinearSVC: w = (0.7958, 0.7958), b = -3.7749, margin 2/||w|| = 1.7771
+  hand solution  : w = (0.6667, 0.6667), b = -3.0000, margin = 2.1213
+  (LinearSVC minimises regularised hinge loss with OWL-QN, an approximation of
+   the exact max-margin QP: both lines separate the classes, same direction w)
+    point (1,1) label 0: w.x + b = -2.1833
+    point (2,1) label 0: w.x + b = -1.3875
+    point (1,2) label 0: w.x + b = -1.3875
+    point (3,3) label 1: w.x + b = +1.0000
+    point (4,3) label 1: w.x + b = +1.7958
+    point (3,4) label 1: w.x + b = +1.7958
+
+========================================================================
+PART B: Spam detection - Naive Bayes vs SVM vs Random Forest
+========================================================================
+Sample of the data (400 emails, 200 spam / 200 ham):
++------------------+------------------+-------------------+-----+
+|             links|        spam_words|         caps_ratio|label|
++------------------+------------------+-------------------+-----+
+|               0.0| 0.292959932272874|                0.0|  0.0|
+|               0.0|0.8490910917639043|0.11929723427378199|  0.0|
+|0.3120599240734734|1.2750099617095512|                0.0|  0.0|
+|0.6388580180789976|1.9330122049532217|0.22600220279061015|  0.0|
+| 2.752897267458412| 1.564601331594091| 0.2018579866100353|  0.0|
++------------------+------------------+-------------------+-----+
+only showing top 5 rows
++-----+----------+---------------+---------------+
+|label|mean_links|mean_spam_words|mean_caps_ratio|
++-----+----------+---------------+---------------+
+|  0.0|     1.904|          1.077|          0.104|
+|  1.0|     6.009|          3.981|          0.358|
++-----+----------+---------------+---------------+
+
+train rows = 274, test rows = 126
+
+Model                         Accuracy      F1    Prec  Recall     AUC
+Naive Bayes (Gaussian)          0.9762  0.9762  0.9683  0.9839  0.9798
+Linear SVM (LinearSVC)          0.9683  0.9683  0.9677  0.9677  0.9972
+Random Forest (100 trees)       0.9444  0.9444  0.9104  0.9839  0.9961
+
+Confusion matrix - Naive Bayes (Gaussian) (rows = actual, cols = predicted):
++-----+---+---+
+|label|0.0|1.0|
++-----+---+---+
+|  0.0| 62|  2|
+|  1.0|  1| 61|
++-----+---+---+
+
+
+Confusion matrix - Linear SVM (LinearSVC) (rows = actual, cols = predicted):
++-----+---+---+
+|label|0.0|1.0|
++-----+---+---+
+|  0.0| 62|  2|
+|  1.0|  2| 60|
++-----+---+---+
+
+
+Confusion matrix - Random Forest (100 trees) (rows = actual, cols = predicted):
++-----+---+---+
+|label|0.0|1.0|
++-----+---+---+
+|  0.0| 58|  6|
+|  1.0|  1| 61|
++-----+---+---+
+
+Naive Bayes - class log-priors: [-0.7005, -0.6859]
+Naive Bayes - per-class feature means (theta):
+DenseMatrix([[2.10624068, 0.96607314, 0.09839127],
+             [6.09793966, 3.88421603, 0.36123265]])
+Naive Bayes - per-class feature variances (sigma):
+DenseMatrix([[2.11088319, 0.68605226, 0.00455871],
+             [3.16278343, 2.04141174, 0.01259169]])
+
+SVM hyperplane on standardised features: w = [0.8859, 1.1782, 1.1182]  b = 0.3079
+
+Random Forest feature importances: {'links': 0.1775, 'spam_words': 0.2591, 'caps_ratio': 0.5634}
+
+Predictions for three new emails (1 = spam):
++-----+----------+----------+-----------+----------+-------------+
+|links|spam_words|caps_ratio|Naive_Bayes|Linear_SVM|Random_Forest|
++-----+----------+----------+-----------+----------+-------------+
+|  1.0|       0.0|      0.05|        0.0|       0.0|          0.0|
+|  4.0|       2.5|      0.22|        1.0|       1.0|          0.0|
+|  8.0|       6.0|       0.5|        1.0|       1.0|          1.0|
++-----+----------+----------+-----------+----------+-------------+
+

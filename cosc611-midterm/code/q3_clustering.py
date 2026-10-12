@@ -7,7 +7,7 @@ Unsupervised learning (clustering) on Apache Spark:
   3. Gaussian Mixture Model     -> pyspark.ml.clustering.GaussianMixture
      (soft / probabilistic clustering via Expectation-Maximisation)
 
-Example data: 15 mall customers described by
+Example data: 25 mall customers described by
   annual income (k$) and spending score (1-100).
 
 Run:  spark-submit q3_clustering.py      (or: python3 q3_clustering.py)
@@ -25,9 +25,16 @@ spark = (SparkSession.builder.appName("Q3-Clustering")
 spark.sparkContext.setLogLevel("ERROR")
 
 data = [
-    (1, 15, 39), (2, 16, 81), (3, 17, 6), (4, 18, 77), (5, 19, 40),
-    (6, 60, 50), (7, 62, 55), (8, 63, 48), (9, 65, 52), (10, 64, 45),
-    (11, 100, 90), (12, 103, 85), (13, 98, 88), (14, 101, 15), (15, 99, 20),
+    # low income, low spending
+    (1, 15, 39), (2, 17, 35), (3, 19, 40), (4, 21, 33), (5, 23, 38),
+    # low income, high spending
+    (6, 16, 81), (7, 18, 77), (8, 20, 85), (9, 22, 79), (10, 24, 83),
+    # middle income, middle spending
+    (11, 60, 50), (12, 62, 55), (13, 63, 48), (14, 65, 52), (15, 64, 45),
+    # high income, high spending
+    (16, 100, 90), (17, 103, 85), (18, 98, 88), (19, 105, 92), (20, 97, 86),
+    # high income, low spending
+    (21, 101, 15), (22, 99, 20), (23, 104, 12), (24, 96, 18), (25, 102, 22),
 ]
 df = spark.createDataFrame(data, ["id", "income", "spending"])
 df = VectorAssembler(inputCols=["income", "spending"],
@@ -79,6 +86,12 @@ print(f"  WSSSE = {km.summary.trainingCost:.2f}, "
 # 2. BISECTING K-MEANS (hierarchical, divisive)
 # ---------------------------------------------------------------------------
 print(f"\n=== 2. Bisecting K-Means (k={K}) ===")
+print("  how the hierarchy unfolds (cluster centres and sizes for k = 2, 3, 4):")
+for kk in [2, 3, 4]:
+    mk = BisectingKMeans(k=kk, seed=1).fit(df)
+    print(f"    k={kk}: " + ", ".join(
+        f"({c[0]:.1f}, {c[1]:.1f}) n={n}"
+        for c, n in zip(mk.clusterCenters(), mk.summary.clusterSizes)))
 bkm = BisectingKMeans(k=K, seed=1).fit(df)
 bkm_pred = bkm.transform(df)
 for i, c in enumerate(bkm.clusterCenters()):
@@ -91,7 +104,7 @@ print(f"  SSE = {bkm.summary.trainingCost:.2f}, "
 # 3. GAUSSIAN MIXTURE MODEL (soft clustering)
 # ---------------------------------------------------------------------------
 print(f"\n=== 3. Gaussian Mixture Model (k={K}) ===")
-gmm = GaussianMixture(k=K, seed=7, maxIter=200, tol=1e-6).fit(df)
+gmm = GaussianMixture(k=K, seed=2, maxIter=200, tol=1e-6).fit(df)
 gmm_pred = gmm.transform(df)
 print("  mixture weights:", [round(w, 4) for w in gmm.weights])
 for i, row in enumerate(gmm.gaussiansDF.collect()):
@@ -102,6 +115,23 @@ print(f"  log-likelihood = {gmm.summary.logLikelihood:.4f}, "
 print("  soft membership probabilities (first 6 customers):")
 for r in gmm_pred.select("id", "probability").limit(6).collect():
     print(f"    customer {r.id:2d}: " + ", ".join(f"{p:.3f}" for p in r.probability))
+# The five customer groups are far apart, so every membership above is ~1.0.
+# Soft clustering matters when clusters OVERLAP: two overlapping groups of
+# customers by age (1-D) - points in the overlap get split probabilities.
+ages = [22, 24, 25, 26, 27, 28, 29, 30, 31, 33, 35,
+        36, 38, 40, 41, 42, 43, 44, 45, 46, 48, 50]
+age_df = VectorAssembler(inputCols=["age"], outputCol="features").transform(
+    spark.createDataFrame([(float(x),) for x in ages], ["age"]))
+g2 = GaussianMixture(k=2, seed=2, maxIter=200, tol=1e-6).fit(age_df)
+print("  overlapping 1-D example (ages), GMM k=2:")
+for i, row in enumerate(g2.gaussiansDF.collect()):
+    print(f"    component {i}: mean = {row['mean'][0]:.2f}, "
+          f"variance = {row['cov'].toArray()[0][0]:.2f}, weight = {g2.weights[i]:.3f}")
+probe = VectorAssembler(inputCols=["age"], outputCol="features").transform(
+    spark.createDataFrame([(25.0,), (33.0,), (35.0,), (37.0,), (47.0,)], ["age"]))
+for r in g2.transform(probe).collect():
+    print(f"    age {r.age:4.0f}: P(component 0) = {r.probability[0]:.3f}, "
+          f"P(component 1) = {r.probability[1]:.3f}")
 
 # ---------------------------------------------------------------------------
 # Side-by-side assignment of every customer
@@ -111,6 +141,6 @@ side = (km_pred.select("id", "income", "spending", F.col("prediction").alias("km
         .join(bkm_pred.select("id", F.col("prediction").alias("bisecting")), "id")
         .join(gmm_pred.select("id", F.col("prediction").alias("gmm")), "id")
         .orderBy("id"))
-side.show(truncate=False)
+side.show(30, truncate=False)
 
 spark.stop()
