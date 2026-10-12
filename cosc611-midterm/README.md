@@ -4,6 +4,7 @@
 * `code/`: the PySpark programs, one per question (submit these with the report)
 * `outputs/`: the console output of each program, quoted in the report
 * `data/`: the real datasets used (see `data/SOURCES.md` for their origins)
+* `screenshots/`: Spark UI (History Server) and console screenshots of the runs
 
 ## Running the code
 
@@ -20,5 +21,6 @@ python code/q4_classification.py    > outputs/q4_classification.txt
 ```
 
 Run these commands from this folder so the `outputs/` paths resolve. The scripts locate `data/` themselves.
-You can also run each one with `spark-submit code/<file>.py`. Every script uses
+You can also run each one with `spark-submit --driver-memory 4g code/<file>.py`. Q1 needs
+the 4 GB driver heap for its MinHash similarity join. Every script uses
 `local[*]` mode and fixed random seeds, so the outputs are reproducible.

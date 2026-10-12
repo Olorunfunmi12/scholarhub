@@ -23,11 +23,78 @@ report:
 The data files are in `data/`, and their origins are listed in `data/SOURCES.md` and in
 the References.
 
-**Environment used to produce the outputs:** Apache Spark 4.0.1 (PySpark) in
-`local[*]` mode, Python 3.13, OpenJDK 21, SciPy 1.18 (used only to cross-check
-p-values). Run each script from the `cosc611-midterm` folder with
-`spark-submit code/qN_*.py` or `python3 code/qN_*.py`. All numbers quoted below are
-copied from the captured outputs.
+**Environment:** Apache Spark 4.0.1 (PySpark) in `local[*]` mode, Python 3.13 and
+OpenJDK 21. The next section, **Spark Environment**, gives the full setup with
+screenshots, and Appendix A has screenshots of every run. All numbers quoted below
+are copied from the captured outputs.
+
+\newpage
+
+# Spark Environment
+
+## Software and hardware
+
+All four programs were run with `spark-submit` in Spark **local mode** (`local[*]`).
+In local mode the driver and the executors run inside one JVM on one machine, using
+every CPU core as a parallel task slot. The same code runs unchanged on a cluster
+by changing the master URL, for example to YARN or Kubernetes.
+
+| Component | Version / value |
+|---|---|
+| Apache Spark (PySpark) | 4.0.1, Scala 2.13.16 |
+| Java | OpenJDK 21.0.12.1 (64-bit Server VM) |
+| Python | 3.13.16 |
+| SciPy / NumPy | 1.18.1 / 2.5.4 (p-value cross-checks only) |
+| Operating system | Linux 6.18 x86_64 (virtual machine) |
+| CPU cores / memory | 4 cores / 15 GB RAM |
+| Spark master | `local[*]` (4 task slots) |
+| Driver memory | 4 GB (`--driver-memory 4g`) |
+| Event logging | enabled, viewed with the Spark History Server |
+
+## Setup steps
+
+```bash
+# 1. Java 17 or 21 must be installed (java -version)
+# 2. Create an isolated Python environment and install PySpark
+python3 -m venv sparkenv && . sparkenv/bin/activate
+pip install pyspark==4.0.1 scipy numpy
+# 3. Turn on event logging so finished jobs can be inspected later
+#    ($SPARK_CONF_DIR/spark-defaults.conf)
+#      spark.eventLog.enabled         true
+#      spark.eventLog.dir             file:///path/to/events
+#      spark.history.fs.logDirectory  file:///path/to/events
+# 4. Run each question
+spark-submit --driver-memory 4g code/q1_similarity.py       > outputs/q1_similarity.txt
+spark-submit --driver-memory 4g code/q2_hypothesis_tests.py > outputs/q2_hypothesis_tests.txt
+spark-submit --driver-memory 4g code/q3_clustering.py       > outputs/q3_clustering.txt
+spark-submit --driver-memory 4g code/q4_classification.py   > outputs/q4_classification.txt
+# 5. Browse the finished applications at http://localhost:18080
+$SPARK_HOME/sbin/start-history-server.sh
+```
+
+Q1 needs the 4 GB driver heap. With the default 1 GB, its MinHash similarity join
+(about 1.4 million result pairs) failed with `java.lang.OutOfMemoryError: Java heap
+space`, so the driver memory was raised.
+
+![Spark, Java and Python versions in the terminal](screenshots/10_console_environment.png){width=100%}
+
+![Spark History Server: the four completed applications, one per question](screenshots/01_history_server_apps.png){width=100%}
+
+| Application | Question | Duration | Spark jobs |
+|---|---|---|---|
+| Q1-Similarity | 1 | 3.4 min | 71 |
+| Q2-HypothesisTesting | 2 | 18 s | 137 |
+| Q3-Clustering | 3 | 50 s | 983 |
+| Q4-Classification | 4 | 45 s | 675 |
+
+Every job in all four applications finished with status SUCCEEDED.
+
+![Spark UI Environment page for the Q1 run: Java 21, Scala 2.13, spark.master = local[*], spark.driver.memory = 4g, event logging on](screenshots/03_q1_environment.png){width=100%}
+
+![Spark UI Executors page for the Q1 run](screenshots/04_q1_executors.png){width=100%}
+
+Screenshots of every question's console output and Spark jobs are in
+**Appendix A**.
 
 \newpage
 
@@ -250,9 +317,11 @@ well-known movies are:
 *equals* their Jaccard similarity. Only pairs that collide in some hash table are
 compared:
 
-* `approxNearestNeighbors` for *The Matrix* returns movies with exactly the same
-  genres (Jaccard distance 0), such as *The Terminator*, *Blade Runner* and
-  *Equilibrium*.
+* `approxNearestNeighbors` for *The Matrix* returns six movies with exactly the
+  same genres (Jaccard distance 0). In the recorded run these were *Predator*,
+  *Predators*, *Johnny Mnemonic*, *eXistenZ*, *Next* and *Surrogates*. Many movies
+  are tagged Action|Sci-Fi|Thriller, so all of them tie at distance 0, and which six
+  are returned can change from run to run.
 * `approxSimilarityJoin` with distance ≤ 0.2 (Jaccard ≥ 0.8) found
   **1,413,821** pairs without comparing all 40,937,676 pairs one by one.
 * An exact brute-force check, also done in Spark, gives the same **1,413,821**, so
@@ -1002,6 +1071,42 @@ spam filter that must not lose real mail. The SVM sits in between.
 | Spark MLlib class | `NaiveBayes` (multinomial, Bernoulli, Gaussian, complement) | `LinearSVC` (binary, linear) | `RandomForestClassifier` |
 | Result on Play Tennis query | No (P = 0.684) | — | No (5 of 7 trees) |
 | Spam (spam7) test accuracy / AUC | 0.769 / 0.856 (0.818 / 0.895 with log features) | 0.836 / 0.906 | **0.884 / 0.925** |
+
+\newpage
+
+# Appendix A — Execution Screenshots
+
+The figures below come from the `spark-submit` runs described in the Spark
+Environment section. The terminal figures are excerpts of each program's console
+output; "..." marks lines left out to save space. The full output of each run is in
+`outputs/`. The Spark UI figures are from the Spark History Server, which reads each
+run's event log.
+
+## Question 1 — Similarity measures
+
+![Q1 console output (excerpt): MovieLens data loaded and the pairwise similarity table](screenshots/11_console_q1.png){width=100%}
+
+![Q1 Spark jobs: 71 completed jobs in 3.4 minutes](screenshots/02_q1_jobs.png){width=100%}
+
+## Question 2 — Hypothesis testing
+
+![Q2 console output (excerpt): chi-square, t-tests, F-test and ANOVA results](screenshots/12_console_q2.png){width=100%}
+
+![Q2 Spark jobs](screenshots/05_q2_jobs.png){width=100%}
+
+## Question 3 — Clustering
+
+![Q3 console output (excerpt): choosing k and the K-Means result on Iris](screenshots/13_console_q3.png){width=100%}
+
+![Q3 Spark jobs](screenshots/06_q3_jobs.png){width=100%}
+
+## Question 4 — Classification
+
+![Q4 console output (excerpt): Naive Bayes by hand and the test-set comparison](screenshots/14_console_q4.png){width=100%}
+
+![Q4 Spark jobs](screenshots/07_q4_jobs.png){width=100%}
+
+![Q4 SQL / DataFrame queries executed by Spark](screenshots/08_q4_sql.png){width=100%}
 
 \newpage
 

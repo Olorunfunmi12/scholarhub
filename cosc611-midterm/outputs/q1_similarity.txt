@@ -113,16 +113,16 @@ Exact Jaccard similarity of genre sets:
 +-------------+-------------+-------+
 
 MinHash LSH approxNearestNeighbors of 'Matrix, The' over all movies (distCol = Jaccard distance = 1 - Jaccard):
-+----------------------------------+----------------------+------------+
-|title                             |genres                |jaccard_dist|
-+----------------------------------+----------------------+------------+
-|Terminator, The                   |Action|Sci-Fi|Thriller|0.0         |
-|Outland                           |Action|Sci-Fi|Thriller|0.0         |
-|Blade Runner                      |Action|Sci-Fi|Thriller|0.0         |
-|Lawnmower Man 2: Beyond Cyberspace|Action|Sci-Fi|Thriller|0.0         |
-|Equilibrium                       |Action|Sci-Fi|Thriller|0.0         |
-|Chronicles of Riddick, The        |Action|Sci-Fi|Thriller|0.0         |
-+----------------------------------+----------------------+------------+
++---------------+----------------------+------------+
+|title          |genres                |jaccard_dist|
++---------------+----------------------+------------+
+|Johnny Mnemonic|Action|Sci-Fi|Thriller|0.0         |
+|Next           |Action|Sci-Fi|Thriller|0.0         |
+|Predator       |Action|Sci-Fi|Thriller|0.0         |
+|Predators      |Action|Sci-Fi|Thriller|0.0         |
+|Surrogates     |Action|Sci-Fi|Thriller|0.0         |
+|eXistenZ       |Action|Sci-Fi|Thriller|0.0         |
++---------------+----------------------+------------+
 
 approxSimilarityJoin: 1413821 movie pairs with Jaccard >= 0.8 found without comparing all 40,937,676 pairs
 exact brute-force count = 1,413,821 pairs (of which 1,406,827 have identical genre sets) -> LSH recall = 1.0000

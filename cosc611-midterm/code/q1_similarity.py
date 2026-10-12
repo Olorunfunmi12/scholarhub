@@ -23,8 +23,10 @@ from pyspark.ml.feature import MinHashLSH, Normalizer, CountVectorizer
 from pyspark.ml.stat import Correlation
 
 DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data")
+# The MinHash similarity join returns ~1.4 million pairs, more than the default
+# 1 GB driver heap holds. (With spark-submit, pass --driver-memory 4g instead.)
 spark = (SparkSession.builder.appName("Q1-Similarity")
-         .master("local[*]").getOrCreate())
+         .master("local[*]").config("spark.driver.memory", "4g").getOrCreate())
 spark.sparkContext.setLogLevel("ERROR")
 
 ratings = (spark.read.csv(os.path.join(DATA, "movielens.csv.gz"),
@@ -185,7 +187,7 @@ print("MinHash LSH approxNearestNeighbors of 'Matrix, The' over all movies "
       "(distCol = Jaccard distance = 1 - Jaccard):")
 (mh.approxNearestNeighbors(movies, key, 6, distCol="jaccard_dist")
  .select("title", "genres", F.round("jaccard_dist", 4).alias("jaccard_dist"))
- .show(truncate=False))
+ .orderBy("jaccard_dist", "title").show(truncate=False))
 join = mh.approxSimilarityJoin(movies, movies, 0.2, distCol="d") \
     .where(F.col("datasetA.movieId") < F.col("datasetB.movieId"))
 print(f"approxSimilarityJoin: {join.count()} movie pairs with Jaccard >= 0.8 found "
